@@ -295,27 +295,27 @@ function Chat() {
                 {/* Visual Grid Overlays */}
                 <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-[0.02] pointer-events-none" />
 
-                <header className="h-16 md:h-20 bg-white/[0.02] backdrop-blur-xl border-b border-white/10 px-4 md:px-8 flex items-center justify-between shrink-0 relative z-10">
-                    <div className="flex items-center gap-3 md:gap-4">
-                        <div className="w-8 h-8 md:w-10 md:h-10 border border-white/10 flex items-center justify-center">
+                <header className="h-16 md:h-20 bg-white/[0.02] backdrop-blur-xl border-b border-white/10 px-4 md:px-8 flex items-center justify-between shrink-0 relative z-10 w-full overflow-hidden">
+                    <div className="flex items-center gap-2 md:gap-4 min-w-0">
+                        <div className="w-8 h-8 md:w-10 md:h-10 border border-white/10 flex items-center justify-center shrink-0">
                             <MessageCircle className="w-4 h-4 md:w-5 md:h-5 text-white" />
                         </div>
-                        <div>
-                            <h3 className="text-[12px] md:text-[14px] font-urbanist font-black uppercase tracking-widest truncate max-w-[150px] md:max-w-none">
+                        <div className="min-w-0">
+                            <h3 className="text-[11px] md:text-[14px] font-urbanist font-black uppercase tracking-widest truncate">
                                 {approvedTrips.find(t => t.chatId === tripId)?.destination || "COMM FEED"}
                             </h3>
                             <div className="flex items-center gap-2">
-                                <span className="text-[8px] md:text-[9px] font-black text-emerald-500 uppercase tracking-widest">Active</span>
-                                <span className="text-[8px] md:text-[9px] font-black text-gray-700 uppercase tracking-widest px-2 border-l border-white/10 truncate max-w-[80px]">/{user.username}</span>
+                                <span className="text-[8px] md:text-[9px] font-black text-emerald-500 uppercase tracking-widest shrink-0">Active</span>
+                                <span className="text-[8px] md:text-[9px] font-black text-gray-700 uppercase tracking-widest px-2 border-l border-white/10 truncate">/{user.username}</span>
                             </div>
                         </div>
                     </div>
-                    <button onClick={() => navigate('/chat')} className="lg:hidden p-2 text-gray-500 hover:text-white transition-colors">
+                    <button onClick={() => navigate('/chat')} className="lg:hidden p-2 text-gray-500 hover:text-white transition-colors shrink-0">
                         <X className="w-5 h-5" />
                     </button>
                 </header>
 
-                <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 md:space-y-8 custom-scrollbar relative z-10 scroll-smooth">
+                <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 space-y-4 md:space-y-8 custom-scrollbar relative z-10 scroll-smooth">
                     {messageList.length === 0 && (
                         <div className="flex flex-col items-center justify-center h-full opacity-20">
                             <Zap className="w-10 h-10 md:w-12 md:h-12 mb-4" />
@@ -334,9 +334,9 @@ function Chat() {
                                         </div>
                                         <div className={`p-2.5 md:p-4 rounded-sm text-sm border ${isMe ? 'bg-white text-black border-white' : 'bg-white/[0.03] border-white/10 text-gray-200'}`}>
                                             {msg.type === 'image' ? (
-                                                <img src={msg.imageUrl} alt="Shared" className="rounded-sm max-h-48 md:max-h-60 border border-white/10" />
+                                                <img src={msg.imageUrl} alt="Shared" className="rounded-sm max-h-48 md:max-h-60 max-w-full object-contain border border-white/10" />
                                             ) : (
-                                                <p className="font-inter leading-relaxed text-[12px] md:text-[13px]">{msg.message}</p>
+                                                <p className="font-inter leading-relaxed text-[12px] md:text-[13px] break-words">{msg.message}</p>
                                             )}
                                         </div>
                                     </div>
@@ -353,7 +353,7 @@ function Chat() {
                 </div>
 
                 {/* Input Surface */}
-                <div className="p-3 md:p-6 bg-[#0a0a0a] border-t border-white/5 relative z-10 w-full">
+                <div className="p-2.5 md:p-6 bg-[#0a0a0a] border-t border-white/5 relative z-10 w-full shrink-0">
                     {selectedImage && (
                         <div className="mb-3 p-3 bg-white/5 border border-white/10 rounded-sm flex items-center justify-between">
                             <div className="flex items-center gap-3">
@@ -364,24 +364,24 @@ function Chat() {
                         </div>
                     )}
 
-                    <div className="flex gap-2 md:gap-3 relative items-center">
+                    <div className="flex gap-1.5 md:gap-3 relative items-center">
                         {showEmojiPicker && (
-                            <div className="absolute bottom-full mb-4 left-0 z-50 max-w-full" ref={emojiPickerRef}>
+                            <div className="absolute bottom-full mb-4 left-0 md:left-0 z-50 max-w-[calc(100vw-20px)] overflow-hidden" ref={emojiPickerRef}>
                                 <div className="hidden md:block">
                                     <EmojiPicker theme={Theme.DARK} onEmojiClick={handleEmojiClick} />
                                 </div>
-                                <div className="md:hidden scale-75 origin-bottom-left">
-                                    <EmojiPicker theme={Theme.DARK} onEmojiClick={handleEmojiClick} />
+                                <div className="md:hidden scale-[0.8] origin-bottom-left">
+                                    <EmojiPicker theme={Theme.DARK} onEmojiClick={handleEmojiClick} width="280px" height="350px" />
                                 </div>
                             </div>
                         )}
                         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageSelect} />
 
-                        <div className="flex gap-1.5 md:gap-2 shrink-0">
-                            <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="w-10 h-10 md:w-12 md:h-12 border border-white/10 flex items-center justify-center text-gray-600 hover:text-white transition-all rounded-sm">
+                        <div className="flex gap-1 md:gap-2 shrink-0">
+                            <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="w-9 h-9 md:w-12 md:h-12 border border-white/10 flex items-center justify-center text-gray-600 hover:text-white transition-all rounded-sm">
                                 <Smile className="w-4 h-4 md:w-5 md:h-5" />
                             </button>
-                            <button onClick={() => fileInputRef.current?.click()} className="w-10 h-10 md:w-12 md:h-12 border border-white/10 flex items-center justify-center text-gray-600 hover:text-white transition-all rounded-sm">
+                            <button onClick={() => fileInputRef.current?.click()} className="w-9 h-9 md:w-12 md:h-12 border border-white/10 flex items-center justify-center text-gray-600 hover:text-white transition-all rounded-sm">
                                 <ImageIcon className="w-4 h-4 md:w-5 md:h-5" />
                             </button>
                         </div>
@@ -392,13 +392,13 @@ function Chat() {
                             onChange={(e) => setCurrentMessage(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                             placeholder="TRANSMIT..."
-                            className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-sm px-3 md:px-6 text-[11px] md:text-[12px] font-black uppercase tracking-widest focus:border-white/30 outline-none h-10 md:h-12"
+                            className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-sm px-3 md:px-6 text-[10px] md:text-[12px] font-black uppercase tracking-widest focus:border-white/30 outline-none h-9 md:h-12"
                         />
 
                         <button
                             onClick={sendMessage}
                             disabled={uploading}
-                            className="h-10 md:h-12 px-4 md:px-8 bg-white text-black text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition-all rounded-sm flex items-center justify-center gap-2 shrink-0"
+                            className="h-9 md:h-12 px-3 md:px-8 bg-white text-black text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition-all rounded-sm flex items-center justify-center gap-2 shrink-0"
                         >
                             {uploading ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
