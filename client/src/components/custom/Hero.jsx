@@ -1,138 +1,104 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "../ui/button";
-import { Link } from "react-router-dom";
-import { Sparkles, Compass, MapPin } from "lucide-react";
-
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 export default function Hero() {
     const { user } = useAuth();
+    const navigate = useNavigate();
+    const [currentSlide, setCurrentSlide] = useState(0);
+
+    const slides = [
+        "/hero-slider-1.png",
+        "/hero-nature.png",
+        "/hero-landscape.png",
+        "/cta-bg.png"
+    ];
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentSlide((prev) => (prev + 1) % slides.length);
+        }, 5000); // Change image every 5 seconds
+        return () => clearInterval(timer);
+    }, []);
+
     return (
-        <section className="relative overflow-hidden px-4 py-20 sm:py-32 lg:py-40">
-            {/* Background Elements */}
-            <div className="absolute inset-0 -z-10">
-                <div className="absolute top-1/4 left-10 w-72 h-72 bg-linear-to-r from-blue-400/20 to-purple-400/20 rounded-full blur-3xl"></div>
-                <div className="absolute bottom-1/4 right-10 w-96 h-96 bg-linear-to-r from-emerald-400/15 to-cyan-400/15 rounded-full blur-3xl"></div>
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-linear-to-r from-blue-500/5 via-transparent to-purple-500/5 rounded-full blur-3xl"></div>
+        <section className="relative w-full h-[100vh] min-h-[600px] flex flex-col p-8 md:p-16 lg:p-24 overflow-hidden bg-black">
 
-                {/* Grid Pattern */}
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,#f0f0f0_1px,transparent_1px),linear-gradient(to_bottom,#f0f0f0_1px,transparent_1px)] bg-size-[4rem_4rem] mask-[radial-gradient(ellipse_at_center,black_20%,transparent_80%)]"></div>
-            </div>
+            {/* Auto-sliding Background */}
+            <div className="absolute inset-0 z-0">
+                {/* Overlay for consistency and tone */}
+                <div className="absolute inset-0 bg-black/40 z-10"></div>
 
-            {/* Floating Icons */}
-            <div className="absolute top-20 left-5 animate-float">
-                <Compass className="w-8 h-8 text-blue-400" />
-            </div>
-            <div className="absolute top-40 right-10 animate-float" style={{ animationDelay: "1s" }}>
-                <Sparkles className="w-10 h-10 text-purple-400" />
-            </div>
-            <div className="absolute bottom-40 left-20 animate-float" style={{ animationDelay: "2s" }}>
-                <MapPin className="w-9 h-9 text-emerald-400" />
-            </div>
-
-            {/* Main Content */}
-            <div className="relative max-w-6xl mx-auto">
-                {/* Badge */}
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-linear-to-r from-blue-50 to-purple-50 border border-blue-100 mb-8 shadow-sm">
-                    <Sparkles className="w-4 h-4 text-blue-500" />
-                    <span className="text-sm font-semibold bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                        AI-Powered Travel Planning
-                    </span>
-                </div>
-
-                {/* Main Heading */}
-                <h1 className="font-bold text-center">
-                    <div className="relative inline-block">
-                        <span className="block text-5xl sm:text-6xl lg:text-7xl xl:text-8xl bg-linear-to-r from-blue-600 via-purple-600 to-emerald-600 bg-clip-text text-transparent leading-tight">
-                            Discover Your Next Adventure with AI
-                        </span>
-                        <div className="absolute -bottom-2 left-0 right-0 h-1 bg-linear-to-r from-blue-500 to-purple-500 rounded-full opacity-50"></div>
+                {slides.map((slide, index) => (
+                    <div
+                        key={index}
+                        className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentSlide ? "opacity-100" : "opacity-0"
+                            }`}
+                    >
+                        <img
+                            src={slide}
+                            alt={`Slide ${index + 1}`}
+                            className="w-full h-full object-cover scale-105"
+                        />
                     </div>
+                ))}
+            </div>
 
-                    <span className="block mt-6 text-3xl sm:text-4xl lg:text-5xl text-gray-800 leading-relaxed">
-                        Personalized Itineraries at Your Fingertips
-                    </span>
-                </h1>
+            {/* Main Content Container */}
+            <div className="relative w-full h-full max-w-7xl mx-auto flex flex-col justify-between z-20">
 
-                {/* Description */}
-                <p className="max-w-2xl mx-auto mt-8 text-xl text-gray-600 leading-relaxed font-medium">
-                    Your personal trip planner and travel curator, creating custom
-                    itineraries tailored to your interests and budget.
-                </p>
-
-                {/* CTA Button */}
-                <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-6">
-                    <Link to="/create-trip">
-                        <div className="relative group">
-                            <div className="absolute -inset-1 bg-linear-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-75 group-hover:opacity-100 transition duration-500"></div>
-                            <Button
-                                size="lg"
-                                className="relative px-10 py-7 text-lg font-semibold bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-xl transform group-hover:-translate-y-0.5 transition-all duration-300"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <Sparkles className="w-5 h-5" />
-                                    Get Started — It's Free
-                                </div>
-                            </Button>
-                        </div>
-                    </Link>
-
-                    <Link to="#features">
-                        <Button
-                            variant="outline"
-                            size="lg"
-                            className="px-8 py-6 text-lg border-2 border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 shadow-sm"
-                        >
-                            <div className="flex items-center gap-2">
-                                <Compass className="w-5 h-5" />
-                                See How It Works
-                            </div>
-                        </Button>
-                    </Link>
+                {/* Top Left: Headlines */}
+                <div className="w-full max-w-5xl mt-8 sm:mt-24">
+                    <h1 className="text-white text-[42px] xs:text-[50px] sm:text-[80px] md:text-[100px] lg:text-[130px] font-urbanist font-black tracking-tighter leading-[0.9] sm:leading-[0.85] drop-shadow-2xl uppercase">
+                        <span className="block animate-reveal opacity-0 [animation-delay:200ms] mb-1 sm:mb-2">Plan your</span>
+                        <span className="block animate-reveal opacity-0 [animation-delay:400ms] text-transparent bg-clip-text bg-gradient-to-r from-white via-white/80 to-white/40 mb-1 sm:mb-2 text-glow">next trip</span>
+                        <span className="block animate-reveal opacity-0 [animation-delay:600ms]">
+                            with <span className="relative inline-block lg:inline">
+                                <span className="relative z-10 text-white animate-glow italic">AI</span>
+                                <span className="absolute -inset-2 bg-white/10 blur-xl rounded-full animate-pulse z-0"></span>
+                            </span>
+                        </span>
+                    </h1>
                 </div>
 
-                {/* Stats */}
-                <div className="mt-20 grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-3xl mx-auto">
-                    {[
-                        { value: "50K+", label: "Itineraries Created", color: "from-blue-500 to-cyan-500" },
-                        { value: "100+", label: "Countries Covered", color: "from-purple-500 to-pink-500" },
-                        { value: "98%", label: "User Satisfaction", color: "from-emerald-500 to-green-500" }
-                    ].map((stat, index) => (
+                {/* Bottom Right: Subtext & Buttons */}
+                <div className="w-full max-w-xl self-end mb-8 sm:mb-12 bg-black/20 p-6 sm:p-8 rounded-lg backdrop-blur-md border border-white/10">
+                    <p className="text-white text-base sm:text-lg font-inter font-medium mb-6 leading-relaxed">
+                        Travel Around builds your itinerary in minutes. Find hotels where you're going. Travel smarter, not harder.
+                    </p>
+
+                    <div className="flex flex-row items-center gap-4">
+                        <Button
+                            onClick={() => navigate(user ? "/create-trip" : "/login")}
+                            className="h-12 flex items-center px-6 text-black bg-white hover:bg-gray-200 font-inter font-bold text-[14px] transition-all rounded-sm active:scale-95"
+                        >
+                            Start planning
+                        </Button>
+
+                        <Link to="#learn-more">
+                            <Button
+                                variant="outline"
+                                className="h-12 px-6 text-white border border-white bg-transparent hover:bg-white/20 font-inter font-bold text-[14px] transition-all rounded-sm shadow-none active:scale-95"
+                            >
+                                Learn more
+                            </Button>
+                        </Link>
+                    </div>
+                </div>
+
+                {/* Progress Indicators */}
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-30">
+                    {slides.map((_, index) => (
                         <div
                             key={index}
-                            className="relative group"
-                        >
-                            <div className={`absolute inset-0 bg-linear-to-r ${stat.color} rounded-2xl opacity-0 group-hover:opacity-10 transition duration-500`}></div>
-                            <div className="relative bg-white/50 backdrop-blur-sm border border-gray-100 rounded-xl p-6 shadow-sm">
-                                <div className={`text-4xl font-bold bg-linear-to-r ${stat.color} bg-clip-text text-transparent`}>
-                                    {stat.value}
-                                </div>
-                                <div className="mt-2 text-gray-600 font-medium">
-                                    {stat.label}
-                                </div>
-                            </div>
-                        </div>
+                            className={`h-1 transition-all duration-300 ${index === currentSlide ? "w-8 bg-white" : "w-4 bg-white/30"
+                                }`}
+                        />
                     ))}
                 </div>
-            </div>
 
-            {/* Animated Scroll Indicator */}
-            <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 animate-bounce">
-                <div className="w-6 h-10 border-2 border-gray-300 rounded-full flex justify-center">
-                    <div className="w-1 h-3 bg-linear-to-b from-blue-400 to-purple-400 rounded-full mt-2"></div>
-                </div>
             </div>
-
-            {/* Add custom animation for floating icons */}
-            <style>{`
-                @keyframes float {
-                    0%, 100% { transform: translateY(0px); }
-                    50% { transform: translateY(-20px); }
-                }
-                .animate-float {
-                    animation: float 6s ease-in-out infinite;
-                }
-            `}</style>
         </section>
     );
 }

@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, MapPin, Star, Clock, Calendar,
-  Phone, Globe, Wifi, Car, Utensils, Users,
-  CreditCard, Shield, CheckCircle, Navigation,
-  Hotel, Map, Clock3, DollarSign, User, Tag, MessageSquare
+  Shield, CheckCircle, Navigation,
+  Hotel, Map, Clock3, DollarSign, Users, MessageSquare, Tag, AlertCircle, Share2, Info, LayoutGrid, List, Zap, Globe, ArrowRight
 } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation as SwiperNav, Pagination, Autoplay } from 'swiper/modules';
@@ -16,52 +15,21 @@ import api from '../service/api';
 import { useToast } from '../components/ui/toast';
 import PaymentModal from '../components/PaymentModal';
 import ItinerarySection from '../components/ItinerarySection';
+import TravelLoader from '../components/custom/TravelLoader';
 
-// Function to redirect to OYO with user inputs
-const redirectToOYO = (bookingData) => {
-  const baseUrl = "https://www.oyorooms.com";
-
-  // Build search parameters based on user input
-  const params = new URLSearchParams({
-    location: bookingData.destination || '',
-    checkin: bookingData.checkIn || '',
-    checkout: bookingData.checkOut || '',
-    guests: bookingData.guests || '2',
-    rooms: bookingData.rooms || '1'
-  });
-
-  // Redirect to OYO with parameters
-  window.open(`${baseUrl}/search?${params.toString()}`, '_blank');
-};
-
-// Usage in your form submit
-const handleSubmit = (e) => {
-  e.preventDefault();
-
-  const bookingData = {
-    destination: document.getElementById('destination').value,
-    checkIn: document.getElementById('checkin').value,
-    checkOut: document.getElementById('checkout').value,
-    guests: document.getElementById('guests').value,
-    rooms: document.getElementById('rooms').value
-  };
-
-  redirectToOYO(bookingData);
-};
 const ViewDetails = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { hotel, isHotel = true, tripId, tripHotelName } = location.state || {};
   const [loading, setLoading] = useState(!hotel);
   const [activeTab, setActiveTab] = useState('overview');
-  const [selectedImage, setSelectedImage] = useState(0);
 
-  // New Features State
   const { user } = useAuth();
   const { toast } = useToast();
-  const [bookingStatus, setBookingStatus] = useState('none'); // none, pending, approved, rejected
-  const [showChat, setShowChat] = useState(false);
+  const [bookingStatus, setBookingStatus] = useState('none');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [tripData, setTripData] = useState(null);
+  const [members, setMembers] = useState([]);
 
   const images = hotel ? (function () {
     const name = isHotel ? hotel.hotelName : hotel.placeName;
@@ -70,37 +38,30 @@ const ViewDetails = () => {
       images.push(hotel.imageUrl);
     }
     if (name) {
-      images.push(`https://source.unsplash.com/featured/1200x800/?${encodeURIComponent(name)} ${isHotel ? 'hotel' : 'tourist attraction'}`);
-      images.push(`https://source.unsplash.com/featured/1200x800/?${encodeURIComponent(name)} ${isHotel ? 'luxury' : 'travel'}`);
+      images.push(`https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200`);
+      images.push(`https://images.unsplash.com/photo-1551882547-ff43c6382636?w=1200`);
+      images.push(`https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=1200`);
     }
-    images.push(`https://source.unsplash.com/featured/1200x800/?${isHotel ? 'luxury hotel room' : 'tourist destination'}`);
-    images.push(`https://source.unsplash.com/featured/1200x800/?${isHotel ? 'hotel lobby' : 'vacation spot'}`);
     return [...new Set(images.filter(url => url && url.startsWith('http')))].slice(0, 5);
   })() : [];
 
-  const name = isHotel ? hotel?.hotelName || 'Hotel Name' : hotel?.placeName || 'Attraction Name';
+  const name = isHotel ? hotel?.hotelName || 'Premium Residence' : hotel?.placeName || 'Iconic Landmark';
   const displayTitle = tripHotelName || name;
-  const description = isHotel ? hotel?.description || 'Comfortable accommodation' : hotel?.details || 'Popular tourist attraction';
-  const address = hotel?.address || 'Address not specified';
-  const price = isHotel ? (hotel?.price || '$100 - $200 per night') : (hotel?.ticketPricing || 'Varies');
-  const rating = hotel?.rating || '4.5';
-  const bestTime = hotel?.bestTimeToVisit || 'Morning';
+  const description = isHotel ? hotel?.description || 'A sanctuary of modern luxury and refined comfort.' : hotel?.details || 'A testament to architectural brilliance and cultural significance.';
+  const address = hotel?.address || 'Premium Coordinates, Intelligence Sector';
+  const price = isHotel ? (hotel.price || '₹12,400') : (hotel.ticketPricing || '₹850');
+  const rating = hotel?.rating || '4.9';
+  const bestTime = hotel?.bestTimeToVisit || '08:00 - 18:00';
 
-  const destinationName = address || hotel?.placeName || hotel?.hotelName || "Unknown Destination";
-
-  const [tripData, setTripData] = useState(null);
-  const [members, setMembers] = useState([]);
+  const destinationName = address || hotel?.placeName || hotel?.hotelName || "Secure Sector";
 
   useEffect(() => {
     if (!hotel) {
-      setTimeout(() => setLoading(false), 1000);
+      setTimeout(() => setLoading(false), 800);
     } else {
       if (user) checkBookingStatus();
-      // Only fetch if tripId is a valid-looking ObjectId string
-      if (tripId && typeof tripId === 'string' && tripId.length >= 24 && tripId !== 'undefined' && tripId !== 'null' && !tripId.includes('[object')) {
+      if (tripId && typeof tripId === 'string' && tripId.length >= 24) {
         fetchTripAndMembers();
-      } else {
-        console.warn("ViewDetails: Missing or invalid tripId, skipping context fetch", tripId);
       }
     }
   }, [hotel, user, tripId]);
@@ -114,28 +75,22 @@ const ViewDetails = () => {
       setTripData(tripRes.data);
       setMembers(membersRes.data);
     } catch (err) {
-      console.error("Failed to fetch trip context", err);
+      console.error("Context retrieval failed", err);
     }
   };
 
   const checkBookingStatus = async () => {
     try {
       const { data } = await api.get(`/bookings/status/${encodeURIComponent(destinationName)}`);
-      if (data && data.status) {
-        setBookingStatus(data.status);
-      }
+      if (data?.status) setBookingStatus(data.status);
     } catch (error) {
-      console.error("Failed to check status", error);
+      console.error("Status validation failed", error);
     }
   };
 
   const handleJoinTrip = () => {
     if (!user) {
-      toast({
-        title: "Please Sign In",
-        description: "You need to be logged in to join trips.",
-        variant: "destructive"
-      });
+      toast({ title: "Login Required", description: "Please sign in to join this trip.", variant: "destructive" });
       navigate('/login');
       return;
     }
@@ -144,8 +99,7 @@ const ViewDetails = () => {
 
   const processBooking = async () => {
     try {
-      console.log("DEBUG: Processing booking for", destinationName);
-      const response = await api.post('/bookings/join', {
+      await api.post('/bookings/join', {
         destination: destinationName,
         tripId: tripId || hotel?.tripId,
         hotelId: hotel?.id || hotel?.name,
@@ -155,58 +109,34 @@ const ViewDetails = () => {
         price: price
       });
 
-      console.log("DEBUG: Booking successful", response.data);
       setBookingStatus('pending');
       setShowPaymentModal(false);
-      toast({
-        title: "Request Sent",
-        description: "Your request to join has been sent to the Organiser/Admin.",
-        type: "success"
-      });
+      toast({ title: "Request Sent!", description: "Awaiting approval from the trip organiser.", type: "success" });
     } catch (error) {
-      console.error("Booking Error FULL:", error);
-      const errorMsg = error.response?.data?.message || error.message || "Failed to join.";
-      toast({
-        title: "Booking Failed",
-        description: errorMsg,
-        variant: "destructive"
-      });
+      const errorMsg = error.response?.data?.message || "Failed to join trip.";
+      toast({ title: "Error", description: errorMsg, variant: "destructive" });
     }
   };
 
   const handleShare = () => {
-    const url = window.location.href;
-    navigator.clipboard.writeText(url);
-    toast({ title: "Link Copied", description: "Share this destination with your friends!" });
+    navigator.clipboard.writeText(window.location.href);
+    toast({ title: "Link Copied!", description: "Share this trip with your friends." });
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading details...</p>
-        </div>
-      </div>
-    );
+    return <TravelLoader />;
   }
 
   if (!hotel) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center px-4">
-        <div className="text-center max-w-md">
-          <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
-            <Hotel className="w-12 h-12 text-blue-500" />
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center p-6 text-center">
+        <div className="max-w-md space-y-8">
+          <AlertCircle className="w-16 h-16 text-gray-800 mx-auto" />
+          <div>
+            <h1 className="text-3xl font-urbanist font-bold text-white mb-2">Trip Not Found</h1>
+            <p className="text-gray-500 font-inter">The requested trip details could not be found in our database.</p>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-3">No Details Found</h1>
-          <p className="text-gray-600 mb-8">
-            Please select a hotel or attraction to view details.
-          </p>
-          <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:shadow-lg transition-all duration-300"
-          >
-            <ArrowLeft className="w-5 h-5" />
+          <button onClick={() => navigate(-1)} className="px-8 h-12 bg-white text-black font-urbanist font-bold rounded-sm hover:bg-gray-200 transition-all">
             Go Back
           </button>
         </div>
@@ -214,44 +144,59 @@ const ViewDetails = () => {
     );
   }
 
-  // Image generation moved up
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50/20 to-white text-left">
-      {/* Header */}
-      <div className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
+    <div className="min-h-screen bg-[#050505] text-white selection:bg-white/20 font-inter">
+      {/* Premium Compact Header */}
+      <div className="bg-[#050505]/95 backdrop-blur-xl border-b border-white/5 sticky top-0 z-40 transition-all h-16 flex items-center">
+        <div className="container mx-auto px-6">
           <div className="flex items-center justify-between">
             <button
               onClick={() => navigate(-1)}
-              className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
+              className="group flex items-center gap-3 text-gray-400 hover:text-white transition-all font-bold uppercase tracking-widest text-[11px]"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4 cursor-pointer" />
               <span>Back</span>
             </button>
 
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900 truncate max-w-md">
+            <h1 className="hidden md:block text-[14px] font-urbanist font-bold text-white tracking-[0.2em] uppercase truncate max-w-[400px]">
               {displayTitle}
             </h1>
 
-            <div className="flex items-center gap-2">
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${isHotel
-                ? 'bg-blue-100 text-blue-700'
-                : 'bg-emerald-100 text-emerald-700'}`}>
-                {isHotel ? 'Hotel' : 'Attraction'}
-              </span>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Verified</span>
+              </div>
+              <button onClick={handleShare} className="p-2 text-gray-400 hover:text-white transition-all cursor-pointer">
+                <Share2 className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Images & Details */}
-          <div className="lg:col-span-2">
-            {/* Image Gallery */}
-            <div className="rounded-2xl overflow-hidden shadow-xl mb-6">
+      <main className="max-w-[1440px] mx-auto px-6 lg:px-12 py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-24">
+
+          {/* Gallery & Content Area - Ensuring no overflow into sidebar */}
+          <div className="lg:col-span-8 space-y-12 min-w-0 relative z-10">
+
+            <header className="space-y-4">
+              <div className="flex items-center gap-3 text-emerald-500">
+                <div className="w-8 h-[1px] bg-emerald-500/50"></div>
+                <span className="text-[10px] font-black uppercase tracking-[0.4em]">Sector Overview</span>
+              </div>
+              <h2 className="text-[40px] lg:text-[56px] font-urbanist font-bold text-white leading-[1.1] tracking-tight">
+                Explore <br />
+                <span className="text-gray-500 italic">{displayTitle}</span>
+              </h2>
+              <p className="text-gray-400 text-[16px] font-medium leading-relaxed max-w-xl">
+                {description}
+              </p>
+            </header>
+
+            {/* Premium Media Gallery */}
+            <div className="relative group rounded-sm overflow-hidden border border-white/10 aspect-video bg-[#0a0a0a]">
               <Swiper
                 modules={[SwiperNav, Pagination, Autoplay]}
                 spaceBetween={0}
@@ -259,360 +204,211 @@ const ViewDetails = () => {
                 navigation
                 pagination={{ clickable: true }}
                 autoplay={{ delay: 5000 }}
-                className="h-64 md:h-96"
+                className="w-full h-full"
               >
                 {images.map((img, idx) => (
                   <SwiperSlide key={idx}>
                     <img
                       src={img}
-                      alt={`${name} - Image ${idx + 1}`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.src = isHotel
-                          ? 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200'
-                          : 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1200';
-                      }}
+                      alt={name}
+                      className="w-full h-full object-cover transition-transform duration-[10s] group-hover:scale-105"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent"></div>
+                    <div className="absolute inset-0 bg-linear-to-t from-[#050505] via-transparent to-transparent opacity-60"></div>
                   </SwiperSlide>
                 ))}
               </Swiper>
-            </div>
 
-            {/* Basic Info */}
-            <div className="mb-8">
-              <div className="flex flex-wrap items-center gap-4 mb-6">
-                <div className="flex items-center gap-2">
-                  <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
-                  <span className="font-bold text-gray-800">{rating}</span>
-                  <span className="text-gray-500">/5.0</span>
+              <div className="absolute top-6 left-6 z-10 flex gap-3">
+                <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md px-4 py-2 border border-white/10">
+                  <Star className="w-3.5 h-3.5 text-white fill-white" />
+                  <span className="font-urbanist font-bold text-white text-sm">{rating}</span>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  <DollarSign className="w-5 h-5 text-green-500" />
-                  <span className="font-bold text-green-600">{price}</span>
+                <div className="flex items-center gap-2 bg-black/60 backdrop-blur-md px-4 py-2 border border-white/10">
+                  <Tag className="w-3.5 h-3.5 text-white" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white">{isHotel ? 'Luxury Stay' : 'Landmark'}</span>
                 </div>
-
-                {!isHotel && (
-                  <div className="flex items-center gap-2">
-                    <Clock3 className="w-5 h-5 text-emerald-500" />
-                    <span className="font-medium text-gray-700">Best: {bestTime}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Location */}
-              <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-xl mb-6">
-                <MapPin className="w-5 h-5 text-blue-500 mt-1 flex-shrink-0" />
-                <div>
-                  <h3 className="font-semibold text-gray-800 mb-1">Location</h3>
-                  <p className="text-gray-600">{address}</p>
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="mb-8">
-                <h3 className="text-xl font-bold text-gray-900 mb-4">About</h3>
-                <p className="text-gray-600 leading-relaxed">{description}</p>
               </div>
             </div>
 
-            {/* Tabs */}
-            <div className="mb-8">
-              <div className="border-b border-gray-200">
-                <nav className="flex flex-wrap gap-4 sm:gap-6">
-                  {['overview', 'amenities', 'itinerary', 'community', 'reviews', 'location'].map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab)}
-                      className={`py-3 px-1 font-medium capitalize border-b-2 transition-colors text-sm sm:text-base ${activeTab === tab
-                        ? 'border-blue-600 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700'
-                        }`}
-                    >
-                      {tab}
-                    </button>
-                  ))}
-                </nav>
+            {/* Navigation Tabs */}
+            <div className="space-y-10">
+              <div className="flex items-center gap-6 overflow-x-auto no-scrollbar border-b border-white/5 pb-1">
+                {[
+                  { id: 'overview', icon: Info, label: 'Overview' },
+                  { id: 'amenities', icon: LayoutGrid, label: 'Features' },
+                  { id: 'itinerary', icon: List, label: 'Itinerary' },
+                  { id: 'community', icon: Users, label: 'Travelers' }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center gap-3 px-2 py-4 transition-all relative whitespace-nowrap cursor-pointer ${activeTab === tab.id
+                      ? 'text-white'
+                      : 'text-gray-500 hover:text-gray-300'
+                      }`}
+                  >
+                    {activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white"></div>}
+                    <tab.icon className="w-4 h-4" />
+                    <span className="text-[12px] font-black uppercase tracking-[0.2em]">{tab.label}</span>
+                  </button>
+                ))}
               </div>
 
-              {/* Tab Content */}
-              <div className="py-6">
+              <div className="animate-in fade-in duration-500">
                 {activeTab === 'overview' && (
-                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">About</h3>
-                    <p className="text-gray-600 leading-relaxed mb-8">{description}</p>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
-                        <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
-                          <MapPin className="w-4 h-4" />
-                          Exact Location
-                        </h4>
-                        <p className="text-sm text-gray-600">{address}</p>
+                  <div className="space-y-12">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mt-4">
+                      <div className="p-10 bg-white/[0.02] border border-white/5 rounded-sm group hover:border-white/20 transition-all">
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 mb-8">Coordinates</h4>
+                        <div className="flex gap-4">
+                          <MapPin className="w-5 h-5 text-white shrink-0" />
+                          <p className="text-[15px] font-bold text-white leading-relaxed">{address}</p>
+                        </div>
                       </div>
-                      <div className="p-4 bg-purple-50 rounded-xl border border-purple-100">
-                        <h4 className="font-semibold text-purple-800 mb-2 flex items-center gap-2">
-                          <DollarSign className="w-4 h-4" />
-                          Pricing
-                        </h4>
-                        <p className="text-sm text-gray-600">{price}</p>
+                      <div className="p-10 bg-white/[0.02] border border-white/5 rounded-sm group hover:border-white/20 transition-all">
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 mb-8">Peak Cycle</h4>
+                        <div className="flex gap-4">
+                          <Clock className="w-5 h-5 text-white shrink-0" />
+                          <p className="text-[15px] font-bold text-white leading-relaxed">{bestTime}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
                 )}
 
                 {activeTab === 'amenities' && (
-                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-6">
-                      {isHotel ? 'Amenities & Services' : 'Features & Facilities'}
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {(isHotel ? ['Free WiFi', 'Swimming Pool', 'Spa', 'Parking', 'Restaurant', '24/7 Room Service'] : ['Guided Tours', 'Photography', 'Wheelchair Ready', 'Restrooms', 'Food Court', 'Parking']).map((amenity, idx) => (
-                        <div key={idx} className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100">
-                          <CheckCircle className="w-5 h-5 text-green-500" />
-                          <span className="text-gray-700 font-medium">{amenity}</span>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+                    {(isHotel ? ['Wi-Fi 6E', 'Room Service', 'Luxury Pool', 'Wellness Hub', 'City View', 'Air Cond.'] : ['Expert Guide', 'Photo Ops', 'Priority Entry', 'Lounge Area', 'Café Access', 'Info Desk']).map((item, idx) => (
+                      <div key={idx} className="p-8 bg-white/[0.02] border border-white/5 rounded-sm flex flex-col gap-4 group hover:border-white/20 transition-all">
+                        <CheckCircle className="w-4 h-4 text-emerald-500" />
+                        <span className="text-[13px] font-black text-white uppercase tracking-widest">{item}</span>
+                      </div>
+                    ))}
                   </div>
                 )}
 
                 {activeTab === 'itinerary' && (
-                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  <div className="bg-[#0a0a0a] border border-white/10 p-10 rounded-sm mt-4">
                     {tripData?.tripData?.itinerary ? (
-                      <div>
-                        <div className="flex items-center gap-3 mb-6">
-                          <Calendar className="w-6 h-6 text-blue-600" />
-                          <h3 className="text-2xl font-bold text-gray-900">Full Trip Itinerary</h3>
-                        </div>
-                        <ItinerarySection itinerary={tripData.tripData.itinerary} />
-                      </div>
+                      <ItinerarySection itinerary={tripData.tripData.itinerary} />
                     ) : (
-                      <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-300">
-                        <Clock className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                        <p className="text-gray-500">No itinerary data available for this trip yet.</p>
+                      <div className="py-24 text-center opacity-30">
+                        <List className="w-12 h-12 mx-auto mb-4" />
+                        <p className="text-[11px] font-black uppercase tracking-[0.4em]">Chronological data is being retrieved...</p>
                       </div>
                     )}
                   </div>
                 )}
 
                 {activeTab === 'community' && (
-                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                    <div className="flex items-center justify-between mb-8">
-                      <div>
-                        <h3 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-                          <Users className="w-6 h-6 text-blue-600" />
-                          Travel Community
-                        </h3>
-                        <p className="text-gray-600">Meet the travelers who are part of this journey</p>
-                      </div>
-                      <div className="bg-blue-600 text-white px-4 py-2 rounded-full font-bold shadow-lg">
-                        {members.length} Members
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      {members.length > 0 ? (
-                        members.map((member, idx) => (
-                          <div key={idx} className="flex items-center gap-4 p-4 bg-white border border-gray-100 rounded-2xl hover:shadow-md transition-all group">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm group-hover:scale-110 transition-transform">
-                              {member.userId?.username?.[0]?.toUpperCase() || 'U'}
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-gray-800">{member.userId?.username || 'Traveler'}</h4>
-                              <p className="text-xs text-green-600 font-semibold uppercase tracking-wider">Approved Member</p>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="col-span-full text-center py-12 bg-gray-50 rounded-2xl border border-dashed border-gray-300">
-                          <Globe className="w-10 h-10 text-gray-300 mx-auto mb-3 animate-pulse" />
-                          <p className="text-gray-500">Be the first to join this community!</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                    {members.length > 0 ? members.map((member, idx) => (
+                      <div key={idx} className="flex items-center gap-4 p-6 bg-white/[0.02] border border-white/5 rounded-sm hover:border-white/20 transition-all">
+                        <div className="w-10 h-10 bg-white text-black flex items-center justify-center font-black text-xs">{member.userId?.username?.[0] || 'U'}</div>
+                        <div>
+                          <p className="text-[13px] font-black text-white uppercase tracking-wider">{member.userId?.username || 'Verified Traveler'}</p>
+                          <span className="text-[9px] font-black text-gray-700 uppercase tracking-widest">Active Member</span>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'reviews' && (
-                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-6">Verified Guest Reviews</h3>
-                    <div className="space-y-4">
-                      {[
-                        { user: 'Sarah L.', rating: 5, comment: 'Simply amazing! Every detail was perfect.', date: 'Dec 2024' },
-                        { user: 'James W.', rating: 4, comment: 'Great location and very responsive staff.', date: 'Nov 2024' }
-                      ].map((review, idx) => (
-                        <div key={idx} className="p-6 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="flex justify-between items-start mb-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
-                                {review.user[0]}
-                              </div>
-                              <div>
-                                <h4 className="font-bold text-gray-800">{review.user}</h4>
-                                <div className="flex gap-1">
-                                  {[...Array(review.rating)].map((_, i) => <Star key={i} className="w-3 h-3 text-amber-500 fill-amber-500" />)}
-                                </div>
-                              </div>
-                            </div>
-                            <span className="text-xs text-gray-400 font-medium">{review.date}</span>
-                          </div>
-                          <p className="text-gray-600 text-sm leading-relaxed italic">"{review.comment}"</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'location' && (
-                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-6">Location Exploration</h3>
-                    <div className="bg-gray-100 rounded-2xl h-80 flex items-center justify-center mb-6 relative overflow-hidden group">
-                      <img
-                        src={`https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(address)}&zoom=13&size=800x400&key=YOUR_API_KEY`}
-                        alt="Map Placeholder"
-                        className="w-full h-full object-cover blur-xs group-hover:blur-0 transition-all duration-700"
-                        onError={(e) => {
-                          e.target.src = "https://images.unsplash.com/photo-1524661135-423995f22d0b?w=1200";
-                          e.target.classList.remove('blur-xs');
-                        }}
-                      />
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 text-white p-4">
-                        <MapPin className="w-12 h-12 mb-2 drop-shadow-lg animate-bounce" />
-                        <p className="font-bold text-lg drop-shadow-lg">{address}</p>
-                        <button className="mt-4 px-6 py-2 bg-white text-gray-900 rounded-full text-sm font-bold hover:bg-blue-600 hover:text-white transition-all">
-                          Open in Google Maps
-                        </button>
                       </div>
-                    </div>
+                    )) : (
+                      <div className="col-span-full py-24 text-center opacity-20 border-2 border-dashed border-white/5 rounded-sm">
+                        <Users className="w-10 h-10 mx-auto mb-4" />
+                        <p className="text-[11px] font-black uppercase tracking-[0.5em]">No active nodes found in this sector</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Right Column - Booking Card (Replaced with Join Trip) */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-24 bg-white rounded-2xl shadow-xl border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-gray-900">
-                  {isHotel ? 'Trip Details' : 'Plan Visit'}
-                </h3>
-                <Tag className="w-5 h-5 text-blue-500" />
+          {/* Pricing & Summary Sidebar - Fixed Width Logic */}
+          <div className="lg:col-span-4 lg:sticky lg:top-24 h-fit min-w-0 z-20">
+            <div className="bg-[#0a0a0a] border border-white/10 p-8 lg:p-10 rounded-sm space-y-10 shadow-2xl relative overflow-hidden group">
+
+              <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity duration-1000 rotate-12">
+                <Globe className="w-48 h-48" />
               </div>
 
-              {/* Price */}
-              <div className="mb-6">
-                <div className="text-sm text-gray-500 mb-1">
-                  Est. Cost
+              <div className="space-y-4 relative z-10">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-600">Estimated Cost</h3>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-urbanist font-black text-white tracking-tighter">
+                    {price.includes('-')
+                      ? price.split('-').map(p => p.replace(/[^\d]/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ",")).join(' - ')
+                      : price.replace(/[^\d]/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ",") || price}
+                  </span>
+                  <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">INR</span>
                 </div>
-                <div className="text-4xl font-bold text-gray-900 mb-1">
-                  {isHotel ? (price.split('-')[0]?.trim()?.replace('$', '') || '200') : '20'}
-                  <span className="text-lg text-gray-500">USD</span>
-                </div>
+                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest leading-loose">Price per individual traveler</p>
               </div>
 
-              <div className="space-y-4 mb-6 text-sm text-gray-600">
-                <p>Join this trip to connect with other travelers.</p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-3">
-
-                {/* Dynamic Logic for Booking/Chat */}
+              <div className="space-y-4 relative z-10">
                 {bookingStatus === 'none' && (
                   <button
                     onClick={handleJoinTrip}
-                    className="w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                    className="w-full h-16 bg-white hover:bg-gray-200 text-black rounded-sm font-urbanist font-black text-[16px] uppercase tracking-widest transition-all flex items-center justify-center gap-4 cursor-pointer active:scale-[0.98]"
                   >
-                    <Users className="w-5 h-5" />
-                    Request to Join Trip
+                    Join Trip
+                    <ArrowRight className="w-5 h-5" />
                   </button>
                 )}
 
                 {bookingStatus === 'pending' && (
-                  <button
-                    disabled
-                    className="w-full py-4 bg-yellow-100 text-yellow-800 font-bold rounded-xl cursor-not-allowed flex items-center justify-center gap-2 border border-yellow-200"
-                  >
-                    <Clock className="w-5 h-5" />
-                    Pending Admin Validation
-                  </button>
-                )}
-
-                {bookingStatus === 'approved' && (
-                  <div className="space-y-3">
-                    <button
-                      disabled
-                      className="w-full py-4 bg-green-100 text-green-800 font-bold rounded-xl cursor-default flex items-center justify-center gap-2"
-                    >
-                      <Users className="w-5 h-5" />
-                      Join Request Approved
-                    </button>
-                    <button
-                      onClick={() => navigate('/chat', { state: { tripId } })}
-                      className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-200"
-                    >
-                      <MessageSquare className="w-5 h-5" />
-                      Enter Group Chat
-                    </button>
+                  <div className="w-full h-16 bg-white/5 border border-white/10 rounded-sm text-gray-600 font-black text-[12px] uppercase tracking-widest flex items-center justify-center gap-3">
+                    <Clock className="w-4 h-4" />
+                    Pending Auth
                   </div>
                 )}
 
-                {(tripData?.userId === user?.id || tripData?.userId?._id === user?.id) && (
+                {bookingStatus === 'approved' && (
                   <button
                     onClick={() => navigate('/chat', { state: { tripId } })}
-                    className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-200"
+                    className="w-full h-16 bg-white text-black hover:bg-gray-200 rounded-sm font-urbanist font-black text-[16px] uppercase tracking-widest flex items-center justify-center gap-4 transition-all cursor-pointer shadow-lg"
                   >
                     <MessageSquare className="w-5 h-5" />
-                    Trip Chat (Organiser)
+                    Open Chat
                   </button>
                 )}
-
-                {bookingStatus === 'rejected' && (
-                  <button
-                    disabled
-                    className="w-full py-4 bg-red-100 text-red-800 font-bold rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    <Shield className="w-5 h-5" />
-                    Join Request Rejected
-                  </button>
-                )}
-
-                <button
-                  onClick={handleShare}
-                  className="w-full py-3 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all duration-300 flex items-center justify-center gap-2"
-                >
-                  <Navigation className="w-4 h-4" />
-                  Share Destination
-                </button>
               </div>
 
-              {/* Safety Info */}
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <div className="flex items-center gap-3 text-sm text-gray-600 mb-3">
-                  <Shield className="w-5 h-5 text-green-500" />
-                  <span>Verified Travelers Only</span>
+              <div className="pt-8 border-t border-white/5 space-y-8 relative z-10">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                  <div className="space-y-3">
+                    <h4 className="text-[9px] font-black uppercase tracking-[0.4em] text-gray-700">Nodes Participating</h4>
+                    <div className="flex items-center gap-3">
+                      <div className="flex -space-x-3">
+                        {(members.length > 0 ? members : [1, 2, 3]).slice(0, 3).map((m, i) => (
+                          <div key={i} className="w-8 h-8 bg-white border-2 border-black text-black flex items-center justify-center text-[10px] font-black rounded-sm">
+                            {typeof m === 'object' ? m.userId?.username?.[0] : '?'}
+                          </div>
+                        ))}
+                      </div>
+                      <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">{members.length || 0} Ready</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white/[0.03] border border-white/5 p-4 rounded-sm flex items-center gap-3 shrink-0">
+                    <Shield className="w-4 h-4 text-white" strokeWidth={3} />
+                    <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Verified</span>
+                  </div>
                 </div>
 
-                <div className="text-xs text-gray-500">
-                  Admins or Trip Organisers validate all members before they can join the trip.
-                </div>
+                <p className="text-[9px] font-bold text-gray-700 uppercase leading-relaxed tracking-widest max-w-[280px]">Global sector data validated for absolute accuracy.</p>
               </div>
-              <PaymentModal
-                isOpen={showPaymentModal}
-                onClose={() => setShowPaymentModal(false)}
-                onSuccess={processBooking}
-                amount={isHotel ? (price.split('-')[0]?.trim()?.replace('$', '') || '200') : '20'}
-                itemName={name}
-              />
             </div>
           </div>
+
         </div>
-      </div>
+      </main>
 
-
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onSuccess={processBooking}
+        amount={isHotel ? (price.replace(/[^\d]/g, '') || '10000') : '1500'}
+        itemName={name}
+      />
     </div>
   );
 };

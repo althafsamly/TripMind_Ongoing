@@ -2,7 +2,7 @@ import express from "express";
 import Booking from "../models/Booking.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
-import { verifyToken, verifyAdmin } from "../middleware/authMiddleware.js";
+import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -11,18 +11,17 @@ const router = express.Router();
 
 // Request to Join (Book Destination)
 router.post("/join", verifyToken, async (req, res) => {
-    console.log(`[BOOKING_JOIN] Request received from user ${req.user.id} for destination ${req.body.destination}`);
     try {
         const { destination, tripId, hotelId, hotelName, hotelImage, hotelAddress, price } = req.body;
 
-        // Check if already requested
+        // Check if already requested for this specific trip
         const existing = await Booking.findOne({
             userId: req.user.id,
-            destination
+            tripId: tripId
         });
 
         if (existing) {
-            return res.status(400).json({ message: "You already have a request for this destination." });
+            return res.status(400).json({ message: "You already have a request for this specific trip." });
         }
 
         // Fetch full user details
@@ -50,12 +49,11 @@ router.post("/join", verifyToken, async (req, res) => {
 
         const io = req.app.get('io');
 
-        // Notify Organiser if exists and approved
-        let notifiedOrganiser = false;
+        // Always notify Organiser if exists
         if (tripId) {
             const Trip = await import("../models/Trip.js").then(m => m.default);
             const trip = await Trip.findById(tripId);
-            if (trip && trip.organiserStatus === 'approved') {
+            if (trip) {
                 const notif = new Notification({
                     userId: trip.userId,
                     type: "booking_request",
@@ -64,25 +62,6 @@ router.post("/join", verifyToken, async (req, res) => {
                 });
                 await notif.save();
                 if (io) io.to(`user_${trip.userId}`).emit("new_notification", notif);
-                notifiedOrganiser = true;
-            }
-        }
-
-        // Always notify Admins too (or only if no organiser?)
-        // User says: "admin will just handel orgniser also chnage the logic accordingly"
-        // This implies organiser handles users. So if there is an organiser, maybe admin doesn't need to be notified?
-        // Let's notify admins only if no organiser is approved for this specific trip yet.
-        if (!notifiedOrganiser) {
-            const admins = await User.find({ role: 'admin' });
-            for (const admin of admins) {
-                const notif = new Notification({
-                    userId: admin._id,
-                    type: "booking_request",
-                    message: `New booking request from ${currentUser.username} for ${destination}`,
-                    link: `/admin`
-                });
-                await notif.save();
-                if (io) io.to(`user_${admin._id}`).emit("new_notification", notif);
             }
         }
 
@@ -93,7 +72,20 @@ router.post("/join", verifyToken, async (req, res) => {
     }
 });
 
-// Check Status for a specific destination/user
+// Check Status for a specific trip/user
+router.get("/status/id/:tripId", verifyToken, async (req, res) => {
+    try {
+        const booking = await Booking.findOne({
+            userId: req.user.id,
+            tripId: req.params.tripId
+        });
+        res.json(booking || { status: "none" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Check Status for a specific destination/user (Legacy)
 router.get("/status/:destination", verifyToken, async (req, res) => {
     try {
         const booking = await Booking.findOne({
@@ -134,29 +126,7 @@ router.get("/creator-requests", verifyToken, async (req, res) => {
     }
 });
 
-// ADMIN: Get All Pending Requests
-router.get("/admin/pending", verifyAdmin, async (req, res) => {
-    try {
-        const bookings = await Booking.find({ status: "pending" })
-            .populate("userId", "username email")
-            .populate("tripId"); // Populate Trip details
-        res.json(bookings);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
 
-// ADMIN: Get All Approved Requests
-router.get("/admin/approved", verifyAdmin, async (req, res) => {
-    try {
-        const bookings = await Booking.find({ status: "approved" })
-            .populate("userId", "username email")
-            .populate("tripId");
-        res.json(bookings);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
 
 // Get Approved Members for a specific Trip
 router.get("/trip/:tripId/members", verifyToken, async (req, res) => {
@@ -178,63 +148,7 @@ router.get("/trip/:tripId/members", verifyToken, async (req, res) => {
     }
 });
 
-// ADMIN: Validate (Approve/Reject)
-router.put("/admin/validate/:id", verifyAdmin, async (req, res) => {
-    try {
-        const { status } = req.body; // approved or rejected
-        const booking = await Booking.findByIdAndUpdate(
-            req.params.id,
-            { status },
-            { new: true }
-        );
 
-        // Notify User
-        const io = req.app.get('io');
-        const notif = new Notification({
-            userId: booking.userId,
-            type: "booking_status",
-            message: `Your booking for ${booking.destination} has been ${status}`,
-            link: `/view-trip/${booking.tripId}` // Redirect to trip
-        });
-        await notif.save();
-        if (io) io.to(`user_${booking.userId}`).emit("notification_new", notif);
-
-        res.json(booking);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// ADMIN: Delete Booking
-router.delete("/admin/:id", verifyAdmin, async (req, res) => {
-    const bookingId = req.params.id;
-    console.log(`[DELETE_BOOKING_ADMIN] Admin ${req.user.id} requested deletion of booking ${bookingId}`);
-    try {
-        const booking = await Booking.findByIdAndDelete(bookingId);
-        if (!booking) {
-            console.warn(`[DELETE_BOOKING_ADMIN] Booking ${bookingId} not found`);
-            return res.status(404).json({ message: "Booking not found" });
-        }
-        console.log(`[DELETE_BOOKING_ADMIN] Booking ${bookingId} deleted successfully`);
-        res.status(200).json({ message: "Booking deleted successfully" });
-    } catch (err) {
-        console.error("[DELETE_BOOKING_ADMIN] Error:", err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// ADMIN: Get All Bookings
-router.get("/admin/all", verifyAdmin, async (req, res) => {
-    try {
-        const bookings = await Booking.find()
-            .populate("userId", "username email")
-            .populate("tripId")
-            .sort({ createdAt: -1 });
-        res.json(bookings);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
 
 // DELETE BOOKING (User cancels their own request)
 router.delete("/:id", verifyToken, async (req, res) => {

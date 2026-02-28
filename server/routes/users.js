@@ -4,107 +4,17 @@ import Trip from "../models/Trip.js";
 import Booking from "../models/Booking.js";
 import Message from "../models/Message.js";
 import Notification from "../models/Notification.js";
-import { verifyToken, verifyAdmin } from "../middleware/authMiddleware.js";
+import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// GET ALL USERS (Admin only)
-router.get("/", verifyAdmin, async (req, res) => {
-    try {
-        const users = await User.find({ role: "user" }).select("-password").sort({ createdAt: -1 });
-        res.status(200).json(users);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
 
-// APPROVE USER
-router.patch("/:id/verify", verifyAdmin, async (req, res) => {
-    try {
-        const user = await User.findById(req.params.id);
-        if (!user) return res.status(404).json({ message: "[USERS] User not found" });
 
-        user.isVerified = true;
-        await user.save();
 
-        res.status(200).json({ message: "User verified successfully", user });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
 
-// REVOKE USER ACCESS
-router.patch("/:id/revoke", verifyAdmin, async (req, res) => {
-    try {
-        const user = await User.findById(req.params.id);
-        if (!user) return res.status(404).json({ message: "[USERS] User not found" });
 
-        user.isVerified = false;
-        await user.save();
 
-        res.status(200).json({ message: "User access revoked", user });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
 
-// DELETE USER
-router.delete("/:id", verifyAdmin, async (req, res) => {
-    const userId = req.params.id;
-    console.log(`[DELETE_USER] Admin ${req.user.id} requested deletion of user ${userId}`);
-
-    try {
-        const user = await User.findById(userId);
-        if (!user) {
-            console.warn(`[DELETE_USER] User ${userId} not found`);
-            return res.status(404).json({ message: "[USERS] User not found" });
-        }
-
-        // 1. Get all trips by this user to clean up favorites
-        const userTrips = await Trip.find({ userId: userId }).select('_id');
-        const userTripIds = userTrips.map(t => t._id);
-
-        // 2. Cascade delete trips
-        const tripDel = await Trip.deleteMany({ userId: userId });
-        console.log(`[DELETE_USER] Deleted ${tripDel.deletedCount} trips owned by ${userId}`);
-
-        // 3. Cascade delete bookings (both made BY the user and FOR the user's trips)
-        const bookingDel = await Booking.deleteMany({
-            $or: [
-                { userId: userId },
-                { tripId: { $in: userTripIds } }
-            ]
-        });
-        console.log(`[DELETE_USER] Deleted ${bookingDel.deletedCount} bookings related to ${userId}`);
-
-        // 4. Cascade delete messages (sent by the user)
-        const msgDel = await Message.deleteMany({
-            $or: [
-                { userId: userId },
-                { tripId: { $in: userTripIds } }
-            ]
-        });
-        console.log(`[DELETE_USER] Deleted ${msgDel.deletedCount} messages related to ${userId}`);
-
-        // 5. Cascade delete notifications
-        const notifDel = await Notification.deleteMany({ userId: userId });
-        console.log(`[DELETE_USER] Deleted ${notifDel.deletedCount} notifications for ${userId}`);
-
-        // 6. Cleanup favorites in other users
-        if (userTripIds.length > 0) {
-            await User.updateMany({}, { $pull: { favorites: { $in: userTripIds } } });
-        }
-
-        // 7. Finally delete the user
-        await User.findByIdAndDelete(userId);
-        console.log(`[DELETE_USER] User ${userId} (${user.username}) deleted successfully`);
-
-        res.status(200).json({ message: "User and all associated data deleted successfully" });
-    } catch (err) {
-        console.error("[DELETE_USER] Error:", err);
-        res.status(500).json({ error: err.message });
-    }
-});
 
 // UPDATE PROFILE
 router.put("/profile", verifyToken, async (req, res) => {
@@ -181,6 +91,17 @@ router.post("/favorites/:tripId", verifyToken, async (req, res) => {
 
         await user.save();
         res.json({ favorites: user.favorites });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET USER BY ID (Public info)
+router.get("/:id", async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id).select("username email avatar role bio");
+        if (!user) return res.status(404).json({ message: "User not found" });
+        res.json(user);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

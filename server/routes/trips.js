@@ -1,10 +1,11 @@
 import express from "express";
+import mongoose from "mongoose";
 import Trip from "../models/Trip.js";
 import User from "../models/User.js";
 import Booking from "../models/Booking.js";
 import Message from "../models/Message.js";
 import jwt from "jsonwebtoken";
-import { verifyAdmin, verifyToken } from "../middleware/authMiddleware.js";
+import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -13,7 +14,7 @@ const router = express.Router();
 // CREATE TRIP
 router.post("/", verifyToken, async (req, res) => {
     try {
-        const { tripData, destination, duration, budget, capacity, price, requestOrganiser } = req.body;
+        const { tripData, destination, duration, budget, capacity, price, requestOrganiser, startDate, endDate } = req.body;
 
         const newTrip = new Trip({
             userId: req.user.id,
@@ -23,8 +24,11 @@ router.post("/", verifyToken, async (req, res) => {
             budget,
             capacity: capacity || 10,
             price,
-            status: "pending",
-            requestOrganiser: requestOrganiser || false
+            status: "approved", // Auto-approve as Admin is removed
+            isPublic: req.body.isPublic !== undefined ? req.body.isPublic : true,
+            requestOrganiser: requestOrganiser || false,
+            startDate,
+            endDate
         });
 
         const savedTrip = await newTrip.save();
@@ -69,39 +73,39 @@ router.get("/", async (req, res) => {
     }
 });
 
-// GET PENDING TRIPS (ADMIN ONLY)
-router.get("/admin/all", verifyAdmin, async (req, res) => {
-    try {
-        const trips = await Trip.find().sort({ createdAt: -1 }).populate('userId', 'username email');
-        res.status(200).json(trips);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
 
-// UPDATE TRIP STATUS (ADMIN ONLY)
-router.patch("/:id/status", verifyAdmin, async (req, res) => {
-    try {
-        const { status } = req.body; // approved, rejected
-        const trip = await Trip.findByIdAndUpdate(req.params.id, { status }, { new: true });
-        res.status(200).json(trip);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
 
-// UPDATE ORGANISER STATUS (ADMIN ONLY)
-router.patch("/:id/organiser-status", verifyAdmin, async (req, res) => {
+// UPDATE TRIP (OWNER ONLY)
+router.put("/:id", verifyToken, async (req, res) => {
     try {
-        const { status } = req.body; // approved, rejected
-        const trip = await Trip.findByIdAndUpdate(req.params.id, { organiserStatus: status }, { new: true });
+        const { id } = req.params;
+        const { destination, budget, duration, capacity, price, status, terms, packageNotes, isBooked, isPublic, selectedHotel, startDate, endDate } = req.body;
 
-        if (status === 'approved') {
-            // Also update user role to 'organiser'
-            await User.findByIdAndUpdate(trip.userId, { role: 'organiser' });
+        const trip = await Trip.findById(id);
+        if (!trip) return res.status(404).json({ message: "Trip not found" });
+
+        // Security check
+        if (trip.userId.toString() !== req.user.id) {
+            return res.status(403).json({ message: "Unauthorized: You don't own this trip" });
         }
 
-        res.status(200).json(trip);
+        // Update fields if provided
+        if (destination) trip.destination = destination;
+        if (budget) trip.budget = budget;
+        if (duration) trip.duration = Number(duration);
+        if (capacity) trip.capacity = Number(capacity);
+        if (price !== undefined) trip.price = Number(price);
+        if (status) trip.status = status;
+        if (terms) trip.terms = terms;
+        if (packageNotes) trip.packageNotes = packageNotes;
+        if (isBooked !== undefined) trip.isBooked = isBooked;
+        if (isPublic !== undefined) trip.isPublic = isPublic;
+        if (selectedHotel !== undefined) trip.selectedHotel = selectedHotel;
+        if (startDate) trip.startDate = startDate;
+        if (endDate) trip.endDate = endDate;
+
+        const updatedTrip = await trip.save();
+        res.json(updatedTrip);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -148,13 +152,12 @@ router.delete("/:id", verifyToken, async (req, res) => {
             return res.status(404).json({ message: "Trip not found" });
         }
 
-        // Check permissions: Admin or Owner
+        // Check permissions: Owner only
         const isOwner = trip.userId.toString() === userId;
-        const isAdmin = userRole === 'admin';
 
-        if (!isAdmin && !isOwner) {
+        if (!isOwner) {
             console.warn(`[DELETE_TRIP] Unauthorized attempt on ${tripId} by ${userId}`);
-            return res.status(403).json({ message: "Unauthorized: You don't own this trip and are not an admin" });
+            return res.status(403).json({ message: "Unauthorized: You don't own this trip" });
         }
 
         // Perform deletion
@@ -162,11 +165,11 @@ router.delete("/:id", verifyToken, async (req, res) => {
         console.log(`[DELETE_TRIP] Trip ${tripId} deleted from MongoDB`);
 
         // Cascade delete: Remove all bookings for this trip
-        const bookingDeleteResult = await Booking.deleteMany({ tripId: tripId });
+        const bookingDeleteResult = await Booking.deleteMany({ tripId: new mongoose.Types.ObjectId(tripId) });
         console.log(`[DELETE_TRIP] Cascade deleted ${bookingDeleteResult.deletedCount} bookings`);
 
         // Cascade delete: Remove all messages for this trip
-        const messageDeleteResult = await Message.deleteMany({ tripId: tripId });
+        const messageDeleteResult = await Message.deleteMany({ tripId: new mongoose.Types.ObjectId(tripId) });
         console.log(`[DELETE_TRIP] Cascade deleted ${messageDeleteResult.deletedCount} messages`);
 
         // Cleanup: Remove from all users' favorites

@@ -15,19 +15,11 @@ export const verifyToken = (req, res, next) => {
     }
 };
 
-export const verifyAdmin = (req, res, next) => {
-    verifyToken(req, res, () => {
-        if (req.user && req.user.role === "admin") {
-            next();
-        } else {
-            res.status(403).json({ message: "Access Denied: Admin only" });
-        }
-    });
-};
+
 
 export const verifyOrganiser = (req, res, next) => {
     verifyToken(req, res, () => {
-        if (req.user && (req.user.role === "organiser" || req.user.role === "admin")) {
+        if (req.user && req.user.role === "organiser") {
             next();
         } else {
             res.status(403).json({ message: "Access Denied: Organiser only" });

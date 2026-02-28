@@ -26,7 +26,7 @@ router.get("/:tripId", verifyToken, async (req, res) => {
         const trip = await Trip.findById(tripId);
         const isCreator = trip && trip.userId.toString() === req.user.id;
 
-        if (!isApprovedMember && !isCreator && req.user.role !== 'admin') {
+        if (!isApprovedMember && !isCreator) {
             return res.status(403).json({ message: "You are not an approved member of this trip." });
         }
 

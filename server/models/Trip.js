@@ -28,8 +28,8 @@ const TripSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ["pending", "approved", "rejected"],
-        default: "pending",
+        enum: ["draft", "published", "cancelled", "approved"],
+        default: "published",
     },
     capacity: {
         type: Number,
@@ -37,17 +37,32 @@ const TripSchema = new mongoose.Schema({
     },
     price: {
         type: Number,
-        required: false,
+        default: 0,
     },
-    requestOrganiser: {
+    terms: {
+        type: String,
+        default: "1. All members must follow safety guidelines. 2. Payments are non-refundable after approval. 3. Respect local culture.",
+    },
+    packageNotes: {
+        type: String,
+        default: "",
+    },
+    isBooked: {
         type: Boolean,
         default: false,
     },
-    organiserStatus: {
-        type: String,
-        enum: ["pending", "approved", "rejected"],
-        default: "pending",
+    selectedHotel: {
+        type: Object,
+        default: null
     },
+    startDate: {
+        type: Date,
+        required: false,
+    },
+    endDate: {
+        type: Date,
+        required: false,
+    }
 }, { timestamps: true });
 
 export default mongoose.model("Trip", TripSchema);

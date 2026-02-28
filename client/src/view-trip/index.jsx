@@ -1,38 +1,57 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
-import { MapPin, Star, Clock, Calendar, Navigation, Globe, Share2, Users, Shield, CheckCircle, MessageCircle } from "lucide-react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { MapPin, Star, Clock, Calendar, Navigation, Globe, Share2, Users, Shield, CheckCircle, MessageCircle, Zap, Compass, Sparkles, UserX, Trash2 } from "lucide-react";
 import TripCard from "../components/ui/TripCard";
 import ItinerarySection from '../components/ItinerarySection';
 import api from "../service/api";
 import { useToast } from '../components/ui/toast';
 import { useAuth } from '../context/AuthContext';
 
-
-
 export default function ViewTrip() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [trip, setTrip] = useState(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // New Features State
   const { user } = useAuth();
-  const [bookingStatus, setBookingStatus] = useState('none'); // none, pending, approved, rejected
-  const [showChat, setShowChat] = useState(false);
+  const [bookingStatus, setBookingStatus] = useState('none');
   const [showTripDetails, setShowTripDetails] = useState(false);
   const [userBooking, setUserBooking] = useState(null);
   const [members, setMembers] = useState([]);
+  const [tripOwnerId, setTripOwnerId] = useState(null);
 
   useEffect(() => {
     const fetchTrip = async () => {
       if (!id) return;
       try {
         const { data } = await api.get(`/trips/${id}`);
-        if (data && data.tripData) {
+        if (data) {
+          const normalizedItinerary = Array.isArray(data.tripData?.itinerary)
+            ? data.tripData.itinerary.map(day => ({
+              ...day,
+              places: day.places || day.activities || day.plan || []
+            }))
+            : data.tripData?.itinerary
+              ? Object.entries(data.tripData.itinerary)
+                .sort((a, b) => parseInt(a[0].replace(/\D/g, '')) - parseInt(b[0].replace(/\D/g, '')))
+                .map(([day, details]) => ({
+                  day: parseInt(day.replace(/\D/g, '')) || 1,
+                  ...details,
+                  places: details.places || details.activities || details.plan || []
+                }))
+              : [];
+
           setTrip({
-            ...data.tripData,
+            ...data,
+            ...(data.tripData || {}),
+            itinerary: normalizedItinerary,
             destination: data.destination,
+            price: data.price || 0,
+            terms: data.terms || "",
+            packageNotes: data.packageNotes || ""
           });
+          setTripOwnerId(data.userId?._id || data.userId);
         }
       } catch (error) {
         console.error("Error fetching trip:", error);
@@ -46,13 +65,26 @@ export default function ViewTrip() {
       }
     };
     fetchTrip();
-  }, [id]);
+  }, [id, toast]);
 
   const fetchMembers = async () => {
     if (!id) return;
     try {
-      const { data } = await api.get(`/bookings/trip/${id}/members`);
-      setMembers(data);
+      const membersRes = await api.get(`/bookings/trip/${id}/members`);
+      const tripRes = await api.get(`/trips/${id}`);
+      const creator = tripRes.data?.userId;
+
+      if (creator) {
+        const ownerRes = await api.get(`/users/${creator}`);
+        const owner = {
+          userId: ownerRes.data,
+          isOwner: true
+        };
+        const filteredMembers = membersRes.data.filter(m => m.userId?._id !== creator);
+        setMembers([owner, ...filteredMembers]);
+      } else {
+        setMembers(membersRes.data);
+      }
     } catch (error) {
       console.error("Error fetching members:", error);
     }
@@ -70,11 +102,15 @@ export default function ViewTrip() {
 
   const checkBookingStatus = async () => {
     try {
-      // Check status by destination name associated with this trip
-      const { data } = await api.get(`/bookings/status/${encodeURIComponent(trip.destination)}`);
+      const { data } = await api.get(`/bookings/status/id/${id}`);
       if (data) {
-        setBookingStatus(data.status || 'none');
-        setUserBooking(data._id ? data : null);
+        const tripRes = await api.get(`/trips/${id}`);
+        if (tripRes.data?.userId === user.id) {
+          setBookingStatus('approved');
+        } else {
+          setBookingStatus(data.status || 'none');
+          setUserBooking(data._id ? data : null);
+        }
       }
     } catch (error) {
       console.error("Failed to check status", error);
@@ -83,18 +119,16 @@ export default function ViewTrip() {
 
   const handleJoinTrip = async () => {
     try {
-      console.log("DEBUG: User attempting to join trip", id);
-      const response = await api.post('/bookings/join', {
+      await api.post('/bookings/join', {
         destination: trip.destination,
         tripId: id
       });
-      console.log("DEBUG: Join request response:", response.data);
       setBookingStatus('pending');
-      fetchMembers(); // Update members list after joining
+      fetchMembers();
       toast({
         title: "Request Sent",
-        description: "Your request has been sent to the Organiser/Admin.",
-        className: "bg-green-50 border-green-200 text-green-800"
+        description: "Your request has been sent to the Organiser.",
+        className: "bg-emerald-600 text-white border-transparent"
       });
     } catch (error) {
       console.error("Join Trip Error FULL:", error);
@@ -111,29 +145,29 @@ export default function ViewTrip() {
     navigator.clipboard.writeText(window.location.href);
     toast({
       title: "Link Copied!",
-      description: "You can now share this trip with your friends."
+      description: "You can now share this trip with your friends.",
+      className: "bg-[#0a0a0a] border border-white/20 text-white"
     });
   };
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <p className="text-xl font-medium text-gray-500">Loading your adventure...</p>
+    <div className='min-h-screen bg-[#050505] flex items-center justify-center'>
+      <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
     </div>
   );
 
   if (!trip) return (
-    <div className="min-h-screen bg-linear-to-b from-blue-50/50 to-white flex items-center justify-center px-4">
-      <div className="text-center max-w-md">
-        <div className="w-24 h-24 mx-auto mb-6 bg-linear-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
-          <Globe className="w-12 h-12 text-blue-500" />
+    <div className="min-h-screen bg-[#050505] flex items-center justify-center px-6">
+      <div className="text-center max-w-md bg-[#0a0a0a] p-12 rounded-[24px] border border-white/10 flex flex-col items-center">
+        <div className="w-16 h-16 mx-auto mb-6 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10">
+          <Globe className="w-8 h-8 text-gray-400" />
         </div>
-        <h1 className="text-2xl font-bold text-gray-800 mb-3">No Trip Found</h1>
-        <p className="text-gray-600 mb-8">Please generate a trip first to view your itinerary.</p>
+        <h1 className="text-[24px] font-urbanist font-bold text-white mb-3 tracking-tight">No Trip Found</h1>
+        <p className="text-gray-400 font-inter text-[14px] mb-8 leading-relaxed">Please generate a trip first to view your itinerary.</p>
         <Link
           to="/create-trip"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-linear-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:shadow-lg transition-all duration-300"
+          className="inline-flex items-center justify-center h-12 px-8 bg-white text-black font-inter font-bold rounded-lg hover:bg-gray-200 transition-colors w-full"
         >
-          <Navigation className="w-5 h-5" />
           Create New Trip
         </Link>
       </div>
@@ -141,348 +175,417 @@ export default function ViewTrip() {
   );
 
   return (
-    <div className="min-h-screen bg-linear-to-b from-gray-50/50 to-white">
-      {/* Trip Header */}
-      <div className="bg-linear-to-r from-blue-600/10 via-purple-600/10 to-emerald-600/10 border-b border-gray-200/50">
-        <div className="px-5 sm:px-10 md:px-24 lg:px-48 xl:px-64 py-12">
-          <div className="max-w-4xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-linear-to-r from-blue-50 to-purple-50 border border-blue-100 mb-6 shadow-sm">
-              <Calendar className="w-4 h-4 text-blue-500" />
-              <span className="text-sm font-semibold bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Your Custom Trip Itinerary
-              </span>
-            </div>
+    <div className="min-h-screen bg-[#050505] text-white selection:bg-white/20">
 
-            <h1 className="text-4xl md:text-5xl font-bold bg-linear-to-r from-blue-700 via-purple-700 to-gray-800 bg-clip-text text-transparent mb-2">
-              {trip.hotels?.[0]?.hotelName || trip.destination || 'Your Trip'}
-            </h1>
-            {trip.hotels?.[0]?.hotelName && (
-              <p className="text-xl text-gray-500 mb-6 flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-blue-500" /> {trip.destination}
-              </p>
-            )}
+      {/* Premium Dark Header */}
+      <div className="relative overflow-hidden bg-[#050505] border-b border-white/10">
+        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-white/[0.02] rounded-full blur-[120px] pointer-events-none transform translate-x-1/3 -translate-y-1/3" />
 
-            <div className="flex flex-wrap items-center justify-between gap-6 text-gray-600">
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-blue-500" />
-                  <span className="font-medium">{trip.duration || 'Custom'} days</span>
+        <div className="px-6 sm:px-10 md:px-16 lg:px-24 xl:px-32 py-20 relative z-10 max-w-[1400px] mx-auto">
+          <div className="max-w-[1280px] mx-auto">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
+              <div className="flex-1">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-white/5 border border-white/10 mb-6 backdrop-blur-md">
+                  <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                  <span className="text-[10px] font-urbanist font-bold uppercase tracking-[0.2em] text-gray-300">
+                    AI Optimized Intelligence
+                  </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Star className="w-5 h-5 text-amber-500" />
-                  <span className="font-medium">{trip.rating || 'Premium'} Experience</span>
+
+                <h1 className="text-[24px] sm:text-[48px] md:text-[64px] font-urbanist font-bold text-white mb-4 sm:mb-6 tracking-tight leading-[1.2] sm:leading-[1.05]">
+                  <span className="truncate block">{trip.destination?.split(',')[0] || trip.destination}</span>
+                </h1>
+
+                <div className="flex flex-wrap items-center gap-4 text-gray-400 font-inter text-[14px]">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    <span>{trip.locationInfo?.displayName || trip.destination}</span>
+                  </div>
+                  <div className="w-1 h-1 rounded-full bg-white/20" />
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    <span>{trip.duration || '3'} Days Journey</span>
+                  </div>
                 </div>
               </div>
 
-              <button onClick={handleShare} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                <Share2 className="w-4 h-4 text-gray-700" />
-                <span className="font-medium text-gray-700">Share</span>
-              </button>
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                <button onClick={handleShare} className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 h-12 bg-transparent border border-white/20 rounded-lg font-inter font-bold text-white hover:bg-white/5 transition-colors">
+                  <Share2 className="w-4 h-4" />
+                  <span>Share</span>
+                </button>
+                <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 h-12 bg-white text-black rounded-lg font-inter font-bold hover:bg-gray-200 transition-colors">
+                  <Navigation className="w-4 h-4" />
+                  <span>Interactive Map</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Stats Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { label: 'Complexity', value: 'Highly Curated', icon: Compass },
+                { label: 'Local Vibe', value: 'Authentic', icon: Globe },
+                { label: 'Efficiency', value: '98%', icon: Zap },
+                { label: 'Rating', value: '4.9/5', icon: Star }
+              ].map((stat, i) => (
+                <div key={i} className="flex flex-col p-5 bg-[#0a0a0a] rounded-[16px] border border-white/10 hover:bg-white/[0.03] transition-colors">
+                  <div className="w-8 h-8 rounded-lg bg-white/5 mb-4 flex items-center justify-center border border-white/10">
+                    <stat.icon className="w-4 h-4 text-gray-300" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-inter font-bold uppercase tracking-widest text-gray-500 mb-1">{stat.label}</p>
+                    <p className="font-urbanist font-bold text-[18px] text-white tracking-tight">{stat.value}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="px-5 sm:px-10 md:px-24 lg:px-48 xl:px-64 py-12">
-        <div className="max-w-7xl mx-auto space-y-16">
+      {/* Main Content Areas */}
+      <div className="px-4 sm:px-10 md:px-16 lg:px-24 xl:px-32 py-10 sm:py-16">
+        <div className="max-w-[1280px] mx-auto space-y-10 sm:space-y-16">
 
-          {/* Pending Notification Banner */}
-
-
-          {/* Members & Booking Status Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-8">
-            {/* Community Members */}
-            <div className="lg:col-span-3 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex flex-col gap-1 mb-6">
-                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                  <Users className="w-5 h-5 text-blue-600" />
-                  Travel Community ({members.length})
-                </h3>
-                <p className="text-gray-500 text-sm italic">Meet the fellow adventurers joining this trip</p>
+          {/* Organiser Management Bar */}
+          {user?.id === tripOwnerId && (
+            <div className="bg-[#0a0a0a] border border-emerald-500/30 p-6 rounded-[20px] flex flex-col md:flex-row items-center justify-between gap-6 shadow-[0_0_20px_rgba(16,185,129,0.05)] relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
+              <div className="flex items-center gap-4 sm:gap-5 relative z-10">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center shrink-0">
+                  <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-[18px] sm:text-[20px] font-urbanist font-bold text-white leading-tight mb-1">Host Management</h3>
+                  <p className="text-[12px] sm:text-[13px] font-inter text-emerald-400/80">Premium control enabled</p>
+                </div>
               </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {members.length > 0 ? (
-                  members.map((member, index) => (
-                    <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 group hover:border-blue-200 transition-all">
-                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-sm group-hover:scale-110 transition-transform">
-                        {member.userId?.username?.charAt(0).toUpperCase() || '?'}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-800 truncate">{member.userId?.username}</p>
-                        <p className="text-[10px] text-gray-500 uppercase tracking-tighter">Approved Member</p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="col-span-full flex items-center gap-3 bg-gray-50 px-6 py-8 rounded-xl border border-dashed border-gray-300 justify-center">
-                    <Globe className="w-5 h-5 text-gray-400 animate-pulse" />
-                    <span className="text-sm font-medium text-gray-500">Wait for the first member to join!</span>
-                  </div>
-                )}
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                <Link to="/organiser" className="w-full sm:w-auto text-center px-6 h-11 flex items-center justify-center bg-transparent hover:bg-white/5 text-white border border-white/20 rounded-lg text-[13px] font-inter font-bold transition-colors">
+                  Manager Dashboard
+                </Link>
+                <button
+                  onClick={() => navigate('/organiser')}
+                  className="w-full sm:w-auto px-6 h-11 flex items-center justify-center bg-white hover:bg-gray-200 text-black rounded-lg text-[13px] font-inter font-bold transition-colors"
+                >
+                  Edit Package
+                </button>
               </div>
             </div>
+          )}
 
-            {/* User Specific Booking Detail Card */}
-            <div className={`lg:col-span-1 rounded-2xl p-6 shadow-sm border transition-all flex flex-col justify-between
-              ${bookingStatus === 'approved' ? 'bg-green-50 border-green-200' :
-                bookingStatus === 'pending' ? 'bg-yellow-50 border-yellow-200' :
-                  'bg-blue-50 border-blue-200'}`}>
+          {/* Premium Adventurer Hub */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-              <div>
-                <h4 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
-                  <Shield className="w-4 h-4" />
-                  Booking Status
-                </h4>
+            {/* Left Side: Community (8 Columns) */}
+            <div className="lg:col-span-8 bg-[#0a0a0a] border border-white/10 rounded-[20px] p-6 sm:p-8 flex flex-col h-full min-h-[400px]">
 
-                <div className="py-4">
-                  {bookingStatus === 'approved' ? (
-                    <div className="space-y-3">
-                      <div className="flex flex-col items-center gap-2 text-center text-green-700">
-                        <CheckCircle className="w-10 h-10" />
-                        <p className="font-bold">Access Granted!</p>
-                        <p className="text-xs">You are a confirmed member of this community trip.</p>
-                      </div>
-                      <Link
-                        to={`/chat?tripId=${id}`}
-                        className="w-full mt-4 flex items-center justify-center gap-2 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold shadow-lg shadow-green-100 transition-all transform hover:scale-[1.02]"
-                      >
-                        <MessageCircle className="w-5 h-5" />
-                        Join Trip Chat
-                      </Link>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 border-b border-white/10 pb-6">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users className="w-4 h-4 text-gray-400" />
+                    <h3 className="text-[20px] sm:text-[24px] font-urbanist font-bold text-white tracking-tight">Traveler Community</h3>
+                  </div>
+                  <p className="text-[12px] sm:text-[13px] font-inter text-gray-500">Join {members.length} other adventurers</p>
+                </div>
+
+                <div className="flex -space-x-3">
+                  {members.slice(0, 5).map((member, i) => (
+                    <div key={i} className="w-10 h-10 rounded-full border-2 border-[#0a0a0a] bg-white/10 flex items-center justify-center text-white font-urbanist font-bold text-[14px]">
+                      {member.userId?.username?.charAt(0).toUpperCase()}
                     </div>
-                  ) : bookingStatus === 'pending' ? (
-                    <div className="space-y-3">
-                      <div className="flex flex-col items-center gap-2 text-center text-yellow-700">
-                        <Clock className="w-10 h-10 animate-pulse" />
-                        <p className="font-bold">Pending Review</p>
-                        <p className="text-xs">An admin is reviewing your request to join.</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex flex-col items-center gap-2 text-center text-blue-700">
-                        <Navigation className="w-10 h-10" />
-                        <p className="font-bold">Ready to travel?</p>
-                        <p className="text-xs">Request access to see the full community details.</p>
-                      </div>
+                  ))}
+                  {members.length > 5 && (
+                    <div className="w-10 h-10 rounded-full border-2 border-[#0a0a0a] bg-black flex items-center justify-center text-gray-400 text-[10px] font-urbanist font-bold">
+                      +{members.length - 5}
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-black/5">
-                <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest text-center">Safety Verified Trip</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
+                {members.length > 0 ? (
+                  members.map((member, index) => (
+                    <div key={index} className="flex items-center justify-between gap-4 p-4 bg-black/40 rounded-[12px] border border-white/5 hover:bg-white/[0.03] transition-colors group/member">
+                      <div className="flex items-center gap-4">
+                        <div className={`h-10 w-10 rounded-lg flex items-center justify-center text-white font-urbanist font-bold border transition-colors ${member.isOwner ? 'bg-white/10 border-white/20' : 'bg-transparent border-white/10'}`}>
+                          {member.userId?.username?.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-[14px] font-urbanist font-bold text-white truncate max-w-[120px]">{member.userId?.username}</p>
+                          <p className="text-[10px] font-inter font-bold uppercase tracking-widest text-gray-500 mt-0.5">
+                            {member.isOwner ? 'Organiser' : 'Verified'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {user?.id === tripOwnerId && !member.isOwner && (
+                        <button
+                          onClick={async () => {
+                            if (window.confirm(`Kick ${member.userId?.username}?`)) {
+                              await api.put(`/organiser/requests/${member._id}/validate`, { status: 'revoked' });
+                              setMembers(prev => prev.filter(m => m._id !== member._id));
+                              toast({ title: "Member Removed" });
+                            }
+                          }}
+                          className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors border border-transparent hover:border-red-500/20"
+                        >
+                          <UserX className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full py-16 flex flex-col items-center justify-center text-center">
+                    <Sparkles className="w-8 h-8 text-white/20 mb-4" />
+                    <h4 className="font-urbanist font-bold text-[18px] text-white mb-2">Be the First Adventurer</h4>
+                    <p className="text-gray-500 font-inter text-[13px] max-w-[240px]">This trip is fresh out of the AI engine. Claim your spot now!</p>
+                  </div>
+                )}
               </div>
+            </div>
+
+            {/* Right Side: Status/Action (4 Columns) */}
+            <div className="lg:col-span-4 flex flex-col gap-6">
+
+              {/* Trip Summary Card */}
+              <div className="bg-[#0a0a0a] rounded-[20px] border border-white/10 p-6 sm:p-8">
+                <p className="text-[10px] font-inter font-bold uppercase tracking-[0.2em] text-gray-500 mb-6">Trip Summary</p>
+                <div className="flex items-baseline gap-2 mb-8">
+                  <span className="text-[40px] font-urbanist font-bold text-white tracking-tight">₹{trip?.price || '15000'}</span>
+                  <span className="text-gray-500 font-inter text-[12px]">{trip?.budget || 'Moderate'} Cost</span>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-start gap-4 p-4 bg-white/5 rounded-[12px] border border-white/5">
+                    <Users className="w-4 h-4 text-gray-300 mt-1 shrink-0" />
+                    <div>
+                      <p className="text-[13px] font-urbanist font-bold text-white mb-1">Community Choice</p>
+                      <p className="text-[12px] font-inter text-gray-500 leading-relaxed">Join this trip to connect with other {trip?.destination} travelers.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4 p-4 bg-white/5 rounded-[12px] border border-white/5">
+                    <Shield className="w-4 h-4 text-gray-300 mt-1 shrink-0" />
+                    <div>
+                      <p className="text-[13px] font-urbanist font-bold text-white mb-1">Verified Access Only</p>
+                      <p className="text-[12px] font-inter text-gray-500 leading-relaxed">Organisers validate all members before they can join the crew.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Booking Status Card */}
+              <div className={`rounded-[20px] border p-6 sm:p-8 transition-colors ${bookingStatus === 'approved' ? 'bg-emerald-500/5 border-emerald-500/20' :
+                bookingStatus === 'pending' ? 'bg-amber-500/5 border-amber-500/20' :
+                  'bg-[#0a0a0a] border-white/10'}`}>
+
+                <p className="text-[10px] font-inter font-bold uppercase tracking-[0.2em] text-gray-500 mb-6">Your Status</p>
+
+                {bookingStatus === 'approved' ? (
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center">
+                        <CheckCircle className="w-6 h-6 text-emerald-400" />
+                      </div>
+                      <div>
+                        <p className="text-[18px] font-urbanist font-bold text-white">Access Granted</p>
+                        <p className="text-[12px] font-inter text-gray-400">Explore the full itinerary and chat.</p>
+                      </div>
+                    </div>
+                    <Link
+                      to={`/chat?tripId=${id}`}
+                      className="w-full h-12 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-black rounded-lg font-inter font-bold transition-colors"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      Crew Chat Room
+                    </Link>
+                  </div>
+                ) : bookingStatus === 'pending' ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4 mb-2">
+                      <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center">
+                        <Clock className="w-6 h-6 text-amber-400 animate-pulse" />
+                      </div>
+                      <div>
+                        <p className="text-[18px] font-urbanist font-bold text-white">Pending Review</p>
+                        <p className="text-[12px] font-inter text-gray-400">Organiser is verifying your profile</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center">
+                        <Zap className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-[18px] font-urbanist font-bold text-white">Join Adventure</p>
+                        <p className="text-[12px] font-inter text-gray-400">Express interest and join the crew!</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleJoinTrip}
+                      className="w-full h-12 bg-white hover:bg-gray-200 text-black flex items-center justify-center rounded-lg font-inter font-bold transition-colors"
+                    >
+                      Join Trip
+                    </button>
+                  </div>
+                )}
+              </div>
+
             </div>
           </div>
 
-
-
           {/* Hotels Section */}
-          <section className="mb-12">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-2 h-10 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full"></div>
-              <h2 className="text-3xl font-bold text-gray-800">
-                🏨 Recommended Hotels
+          <section className="pt-8">
+            <div className="flex items-center gap-4 mb-6 sm:mb-10">
+              <h2 className="font-urbanist font-bold text-[28px] sm:text-[36px] tracking-tight text-white">
+                🏨 {user?.id === tripOwnerId ? "Select Booked Hotel" : "Accommodations"}
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {trip?.hotels?.map((hotel, index) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {(user?.id === tripOwnerId ? trip?.hotels : (trip?.selectedHotel ? [trip.selectedHotel] : trip?.hotels))?.map((hotel, index) => (
                 <TripCard
                   key={index}
                   hotel={hotel}
                   isHotel={true}
                   tripId={id}
                   tripHotelName={trip.hotels?.[0]?.hotelName}
+                  isSelected={trip?.selectedHotel?.hotelName === hotel.hotelName}
+                  isOrganiser={user?.id === tripOwnerId}
+                  onSelect={async (h) => {
+                    try {
+                      const isDeselect = trip?.selectedHotel?.hotelName === h.hotelName;
+                      const response = await api.put(`/trips/${id}`, {
+                        selectedHotel: isDeselect ? null : h
+                      });
+                      setTrip(prev => ({ ...prev, selectedHotel: response.data.selectedHotel }));
+                      toast({
+                        title: isDeselect ? "Hotel Removed" : "Hotel Booked",
+                        description: isDeselect ? "Removed from itinerary highlight." : "This hotel is now marked as booked for all users.",
+                        className: "bg-[#0a0a0a] text-white border-white/20"
+                      });
+                    } catch (err) {
+                      toast({ title: "Error", description: "Failed to update hotel selection.", variant: "destructive" });
+                    }
+                  }}
                 />
               ))}
             </div>
           </section>
 
           {/* Itinerary Section */}
-          <section className="relative">
-            <div className="mb-8">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-2 h-10 bg-linear-to-b from-emerald-500 to-green-500 rounded-full"></div>
-                <h2 className="text-3xl font-bold text-gray-800">
-                  🗓 Daily Itinerary Plan
-                </h2>
-              </div>
-              <p className="text-gray-600 text-lg">
+          <section className="pt-8">
+            <div className="mb-8 sm:mb-10">
+              <h2 className="font-urbanist font-bold text-[28px] sm:text-[36px] tracking-tight text-white mb-2">
+                🗓 Daily Itinerary Plan
+              </h2>
+              <p className="text-gray-400 font-inter text-[13px] sm:text-[15px]">
                 Your personalized day-by-day adventure schedule
               </p>
             </div>
 
-            <div className="space-y-8">
-              <ItinerarySection itinerary={trip.itinerary} tripHotelName={trip.hotels?.[0]?.hotelName} />
-            </div>
+            <ItinerarySection itinerary={trip.itinerary} tripHotelName={trip.hotels?.[0]?.hotelName} />
           </section>
 
-          {/* Summary & Actions */}
-          <section className="bg-linear-to-br from-blue-50/50 to-purple-50/50 rounded-3xl p-8 border border-gray-200/50">
-            <div className="max-w-3xl mx-auto text-center">
-              <h3 className="text-2xl font-bold text-gray-800 mb-4">
+          {/* Summary & Final Actions */}
+          <section className="bg-[#050505] border border-white/10 rounded-[24px] p-10 md:p-16 relative overflow-hidden text-center mt-12 bg-white/[0.01]">
+            <div className="relative z-10 max-w-2xl mx-auto flex flex-col items-center">
+              <Sparkles className="w-8 h-8 text-white/20 mb-6" />
+              <h3 className="text-[32px] font-urbanist font-bold text-white tracking-tight mb-4">
                 Ready to Join This Adventure?
               </h3>
-              <p className="text-gray-600 mb-8">
-                Connect with the group, discuss plans, and get ready for your trip to {trip.destination}.
+              <p className="text-[15px] font-inter text-gray-400 mb-10 leading-relaxed max-w-lg">
+                Connect with the group, discuss plans, and get ready for your upcoming trip to {trip.destination}.
               </p>
 
-              <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-4">
-                {/* Dynamic Logic for Booking/Chat */}
-                {bookingStatus === 'none' && (
-                  <button
-                    onClick={handleJoinTrip}
-                    className="px-8 py-4 bg-linear-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
-                  >
-                    <Users className="w-5 h-5" />
-                    Request to Join Trip
-                  </button>
-                )}
-
-                {bookingStatus === 'pending' && (
-                  <button
-                    disabled
-                    className="px-8 py-4 bg-yellow-100 text-yellow-800 font-bold rounded-xl cursor-not-allowed flex items-center justify-center gap-2 border border-yellow-200"
-                  >
-                    <Clock className="w-5 h-5" />
-                    Pending Admin Validation
-                  </button>
-                )}
+              <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-4 w-full">
 
                 {bookingStatus === 'approved' && (
-                  <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
-                    <button
-                      disabled
-                      className="px-8 py-4 bg-green-100 text-green-800 font-bold rounded-xl cursor-default flex items-center justify-center gap-2 border border-green-200"
-                    >
-                      <CheckCircle className="w-5 h-5" />
-                      Trip Approved
-                    </button>
-                    <Link
-                      to={`/chat?tripId=${id}`}
-                      className="px-8 py-4 bg-linear-to-r from-emerald-500 to-teal-600 text-white font-bold rounded-xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
-                    >
-                      <Navigation className="w-5 h-5" />
-                      Chat with Approved Members
-                    </Link>
-                  </div>
+                  <Link
+                    to={`/chat?tripId=${id}`}
+                    className="h-12 px-8 bg-white hover:bg-gray-200 text-black font-inter font-bold rounded-lg transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Chat with Approved Members
+                  </Link>
                 )}
 
-                {bookingStatus === 'revoked' && (
-                  <div className="px-8 py-4 bg-red-100 text-red-800 font-bold rounded-xl flex items-center justify-center gap-2 border border-red-200">
-                    <Shield className="w-5 h-5" />
-                    Access Revoked by Admin
-                  </div>
-                )}
-
-                {bookingStatus === 'rejected' && (
-                  <div className="px-8 py-4 bg-red-100 text-red-800 font-bold rounded-xl flex items-center justify-center gap-2 border border-red-200">
-                    <XCircle className="w-5 h-5" />
-                    Join Request Rejected
-                  </div>
-                )}
-
-                {/* Standard Actions */}
-                <button
-                  onClick={() => window.print()}
-                  className="px-6 py-4 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all duration-300"
-                >
-                  Download Itinerary
-                </button>
-                <button onClick={handleShare} className="px-6 py-4 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:border-purple-300 hover:bg-purple-50 transition-all duration-300">
-                  Share Trip
-                </button>
-
-                {/* New Package Details Button */}
                 <button
                   onClick={() => setShowTripDetails(true)}
-                  className="px-6 py-4 bg-gradient-to-r from-orange-400 to-red-500 text-white font-semibold rounded-xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 flex items-center gap-2"
+                  className="h-12 px-8 bg-transparent hover:bg-white/5 border border-white/20 text-white font-inter font-bold rounded-lg transition-colors flex items-center justify-center w-full sm:w-auto"
                 >
-                  <Navigation className="w-5 h-5" />
-                  Trip Details
+                  Trip Details Overview
                 </button>
               </div>
             </div>
           </section>
 
-
-
           {/* Custom Trip Details Modal */}
           {showTripDetails && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all duration-300">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-sm transition-all duration-300">
               <div
-                className="bg-white w-full max-w-4xl max-h-[90vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col transform transition-all scale-100"
+                className="bg-[#0a0a0a] border border-white/10 w-full max-w-4xl max-h-[90vh] rounded-[24px] shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col"
                 role="dialog"
                 aria-modal="true"
               >
                 {/* Modal Header */}
-                <div className="relative px-8 py-6 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 shrink-0">
+                <div className="relative px-8 py-6 border-b border-white/10 shrink-0 bg-white/[0.02]">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-3xl font-bold text-white mb-2">Trip Overview</h2>
-                      <div className="flex items-center gap-4 text-blue-100">
-                        <span className="flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-md border border-white/10">
-                          <MapPin className="w-4 h-4" /> {trip.destination}
+                      <h2 className="text-[24px] font-urbanist font-bold text-white mb-2">Trip Overview</h2>
+                      <div className="flex items-center gap-3 text-gray-400 font-inter text-[13px]">
+                        <span className="flex items-center gap-1.5 bg-white/5 px-2.5 py-1 rounded-md border border-white/5">
+                          <MapPin className="w-3.5 h-3.5" /> {trip.destination}
                         </span>
-                        <span className="flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full text-sm backdrop-blur-md border border-white/10">
-                          <Clock className="w-4 h-4" /> {trip.duration} Days
+                        <span className="flex items-center gap-1.5 bg-white/5 px-2.5 py-1 rounded-md border border-white/5">
+                          <Clock className="w-3.5 h-3.5" /> {trip.duration} Days
                         </span>
                       </div>
                     </div>
                     <button
                       onClick={() => setShowTripDetails(false)}
-                      className="p-2 bg-white/20 hover:bg-white/30 rounded-full text-white transition-colors"
+                      className="w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-gray-400 hover:text-white transition-colors"
                     >
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
                   </div>
-
-                  {/* Decorative circles */}
-                  <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
-                  <div className="absolute bottom-0 left-1/4 w-24 h-24 bg-purple-500/20 rounded-full blur-xl pointer-events-none"></div>
                 </div>
 
                 {/* Modal Content */}
-                <div className="p-8 overflow-y-auto custom-scrollbar bg-gray-50/50">
-                  <div className="space-y-10">
+                <div className="p-8 overflow-y-auto custom-scrollbar">
+                  <div className="space-y-12">
 
-                    {/* Hotel Summary */}
+                    {/* Accommodation Quick Look */}
                     <div>
-                      <h3 className="flex items-center gap-3 text-xl font-bold text-gray-900 mb-6">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                          <MapPin className="w-6 h-6 text-blue-600" />
-                        </div>
-                        Accommodation Highlights
+                      <h3 className="flex items-center gap-3 text-[18px] font-urbanist font-bold text-white mb-6">
+                        <MapPin className="w-5 h-5 text-gray-400" /> Accommodation Highlights
                       </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {trip.hotels?.map((hotel, idx) => (
-                          <div key={idx} className="group bg-white rounded-2xl p-4 shadow-sm hover:shadow-md border border-gray-100 transition-all duration-300 flex gap-4">
-                            <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-gray-200">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {(user?.id === tripOwnerId ? trip.hotels : (trip.selectedHotel ? [trip.selectedHotel] : trip.hotels))?.map((hotel, idx) => (
+                          <div key={idx} className={`bg-black/50 rounded-[16px] p-3 border transition-all flex gap-4 ${trip?.selectedHotel?.hotelName === hotel.hotelName ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10'}`}>
+                            <div className="w-20 h-20 shrink-0 rounded-[10px] overflow-hidden bg-white/5">
                               <img
                                 src={hotel?.imageUrl || '/placeholder.jpg'}
                                 alt={hotel?.hotelName}
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                                onError={(e) => {
-                                  e.target.src = '/placeholder.jpg';
-                                }}
+                                className="w-full h-full object-cover opacity-80"
+                                onError={(e) => { e.target.src = '/placeholder.jpg'; }}
                               />
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-bold text-gray-900 truncate">{hotel?.hotelName}</h4>
-                              <p className="text-sm text-gray-500 mb-2 truncate">{hotel?.address}</p>
-                              <div className="flex items-center justify-between">
-                                <span className="inline-block px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-md">
+                            <div className="flex-1 min-w-0 py-1">
+                              <h4 className="font-urbanist font-bold text-white text-[15px] truncate mb-1">{hotel?.hotelName}</h4>
+                              <p className="text-[11px] font-inter text-gray-500 mb-2 truncate">{hotel?.address}</p>
+                              <div className="flex items-center gap-3">
+                                <span className="text-[12px] font-inter font-bold text-emerald-400">
                                   {hotel?.price}
                                 </span>
-                                <div className="flex items-center gap-1 text-amber-500 text-sm font-bold">
-                                  <Star className="w-3 h-3 fill-current" />
-                                  <span>{hotel?.rating}</span>
+                                <div className="flex items-center gap-1 text-[12px] font-inter font-bold text-amber-500">
+                                  <Star className="w-3 h-3 fill-current" /> {hotel?.rating}
                                 </div>
                               </div>
                             </div>
@@ -491,60 +594,42 @@ export default function ViewTrip() {
                       </div>
                     </div>
 
-                    <div className="h-px bg-gray-200"></div>
+                    <div className="w-full h-px bg-white/10"></div>
 
-                    {/* Itinerary Preview */}
+                    {/* Itinerary Matrix */}
                     <div>
-                      <h3 className="flex items-center gap-3 text-xl font-bold text-gray-900 mb-6">
-                        <div className="p-2 bg-purple-100 rounded-lg">
-                          <Calendar className="w-6 h-6 text-purple-600" />
-                        </div>
-                        Itinerary Roadmap
+                      <h3 className="flex items-center gap-3 text-[18px] font-urbanist font-bold text-white mb-6">
+                        <Calendar className="w-5 h-5 text-gray-400" /> Itinerary Roadmap
                       </h3>
-
-                      <div className="relative border-l-2 border-purple-200 ml-4 space-y-8 pb-4">
-                        {Object.entries(trip.itinerary || {}).sort((a, b) => {
-                          const dayA = parseInt(a[0].replace(/\D/g, '')) || 0;
-                          const dayB = parseInt(b[0].replace(/\D/g, '')) || 0;
-                          return dayA - dayB;
-                        }).map(([day, details], idx) => (
-                          <div key={idx} className="relative pl-8">
-                            {/* Dot */}
-                            <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-4 border-purple-500 shadow-sm"></div>
-
-                            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:border-purple-200 transition-colors">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-purple-600 font-bold uppercase tracking-wider text-sm">
-                                  {day}
-                                </span>
-                                <span className="text-gray-400 text-xs bg-gray-100 px-2 py-1 rounded-full">{details?.time || 'All Day'}</span>
-                              </div>
-                              <h4 className="font-bold text-lg text-gray-800 mb-2">
-                                {details?.theme || details?.placeName || 'Exploration Day'}
-                              </h4>
-                              <p className="text-gray-600 text-sm leading-relaxed line-clamp-2">
-                                {details?.details || details?.description || 'Enjoy a wonderful day exploring the best spots in the city.'}
-                              </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                        {(Array.isArray(trip.itinerary) ? trip.itinerary : []).map((details, idx) => (
+                          <div key={idx} className="bg-black/50 p-5 rounded-[16px] border border-white/10 flex flex-col">
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="font-urbanist font-bold text-white text-[14px] uppercase tracking-wider">Day {details.day || idx + 1}</span>
+                              <span className="text-[10px] font-inter font-bold text-gray-500 bg-white/5 px-2 py-1 rounded border border-white/5">{details?.time || details?.totalTime || 'All Day'}</span>
                             </div>
+                            <h4 className="font-urbanist font-bold text-white text-[16px] mb-2 line-clamp-1">{details?.theme || details?.area || 'Exploration Day'}</h4>
+                            <p className="text-gray-500 text-[12px] font-inter leading-relaxed line-clamp-3 mt-auto">
+                              {details?.details || details?.description || `Explore the best of ${trip.destination?.split(',')[0]}.`}
+                            </p>
                           </div>
                         ))}
                       </div>
                     </div>
-
                   </div>
                 </div>
 
                 {/* Footer Modal */}
-                <div className="p-6 bg-white border-t border-gray-100 shrink-0 flex justify-end gap-3">
+                <div className="p-6 border-t border-white/10 shrink-0 flex items-center justify-end gap-3 bg-white/[0.02]">
                   <button
                     onClick={() => setShowTripDetails(false)}
-                    className="px-6 py-2.5 text-gray-600 font-semibold hover:bg-gray-100 rounded-xl transition-colors"
+                    className="h-10 px-6 bg-transparent hover:bg-white/5 text-white border border-white/20 rounded-lg text-[13px] font-inter font-bold transition-colors"
                   >
                     Close
                   </button>
                   <button
                     onClick={() => { setShowTripDetails(false); window.print(); }}
-                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 transition-all transform hover:-translate-y-0.5"
+                    className="h-10 px-6 bg-white hover:bg-gray-200 text-black rounded-lg text-[13px] font-inter font-bold transition-colors"
                   >
                     Download PDF
                   </button>

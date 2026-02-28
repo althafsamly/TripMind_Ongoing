@@ -50,45 +50,51 @@ const Explore = () => {
     }, [filters]);
 
     return (
-        <div className="px-5 sm:px-10 md:px-24 lg:px-48 xl:px-64 py-10 bg-gray-50 min-h-screen">
-            <div className="text-center mb-12">
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
-                    Explore Community Trips
-                </h1>
-                <p className="text-gray-600 text-lg">
-                    Discover itineraries created by other travelers
-                </p>
-            </div>
+        <div className="px-4 md:px-16 lg:px-24 py-16 bg-[#050505] min-h-screen text-white">
+            <div className="max-w-7xl mx-auto">
 
-            <div className="mb-8">
-                <TripFilters filters={filters} setFilters={setFilters} />
-            </div>
+                {/* Header Section */}
+                <div className="mb-8 sm:mb-12">
+                    <h1 className="text-[32px] sm:text-[48px] lg:text-[56px] font-urbanist font-medium tracking-tight leading-[1.1] mb-2 sm:mb-3 text-white">
+                        Explore <span className="text-gray-400">Community.</span>
+                    </h1>
+                    <p className="text-gray-400 font-inter text-[14px] sm:text-[17px] max-w-xl">
+                        Discover itineraries created by our expert travelers.
+                    </p>
+                </div>
 
-            {loading ? (
-                <div className="flex justify-center py-20">
-                    <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+                {/* Filters */}
+                <div className="mb-8 sm:mb-12 border-b border-white/10 pb-6 sm:pb-8">
+                    <TripFilters filters={filters} setFilters={setFilters} />
                 </div>
-            ) : trips.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {trips.map((trip) => {
-                        const booking = userBookings.find(b => b.tripId?._id === trip._id || b.tripId === trip._id);
-                        return (
-                            <UserTripCard
-                                key={trip._id}
-                                trip={trip}
-                                isJoined={!!booking}
-                                bookingStatus={booking?.status}
-                            />
-                        );
-                    })}
-                </div>
-            ) : (
-                <div className="text-center py-20 bg-white rounded-xl border border-gray-100 shadow-sm">
-                    <Globe className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-xl font-bold text-gray-800">No trips found</h3>
-                    <p className="text-gray-500">Try adjusting your filters to find more adventures.</p>
-                </div>
-            )}
+
+                {/* Content Area */}
+                {loading ? (
+                    <div className="flex justify-center py-20">
+                        <Loader2 className="w-8 h-8 animate-spin text-white/40" />
+                    </div>
+                ) : trips.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+                        {trips.map((trip) => {
+                            const booking = userBookings.find(b => b.tripId?._id === trip._id || b.tripId === trip._id);
+                            return (
+                                <UserTripCard
+                                    key={trip._id}
+                                    trip={trip}
+                                    isJoined={!!booking}
+                                    bookingStatus={booking?.status}
+                                />
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div className="text-center py-24 border border-white/10 bg-[#0a0a0a] rounded-2xl flex flex-col items-center justify-center">
+                        <Globe className="w-12 h-12 text-white/20 mb-6" />
+                        <h3 className="text-[20px] font-urbanist font-medium text-white mb-2">No trips found</h3>
+                        <p className="text-gray-400 font-inter text-[14px]">Try adjusting your filters to discover more adventures.</p>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

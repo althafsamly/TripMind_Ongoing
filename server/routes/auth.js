@@ -74,7 +74,8 @@ router.post("/register", async (req, res) => {
             username: normalizedUsername,
             email: normalizedEmail,
             password: hashedPassword,
-            role: role || 'user'
+            role: role || 'user',
+            isVerified: true // Auto-verify as Admin is removed
         });
 
         console.log("[AUTH_REGISTER] Saving user to DB...");
@@ -83,7 +84,7 @@ router.post("/register", async (req, res) => {
 
         // No auto-login because admin approval might be required.
         res.status(201).json({
-            message: "User registered successfully. Please wait for admin approval.",
+            message: "User registered successfully. You can now log in.",
         });
 
     } catch (err) {
@@ -158,6 +159,34 @@ router.post("/logout", (req, res) => {
         res.clearCookie("connect.sid"); // Clear cookie on client
         res.status(200).json({ message: "Logout successful" });
     });
+});
+
+// FORGOT PASSWORD (Placeholder)
+router.post("/forgot-password", async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({ message: "Email is required" });
+        }
+
+        const normalizedEmail = email.toLowerCase().trim();
+        const user = await User.findOne({ email: normalizedEmail });
+
+        if (!user) {
+            // Security best practice: don't reveal if user exists
+            return res.status(200).json({ message: "If this email is registered, you will receive a reset link shortly." });
+        }
+
+        // Here you would normally generate a token and send an email
+        console.log(`[AUTH] Password reset requested for: ${normalizedEmail}`);
+
+        res.status(200).json({
+            message: "Recovery link sent to your email.",
+        });
+    } catch (err) {
+        console.error("[AUTH_FORGOT_PASSWORD_ERROR]:", err);
+        res.status(500).json({ message: "Internal server error" });
+    }
 });
 
 export default router;

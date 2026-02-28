@@ -17,9 +17,9 @@ import Chat from "./chat/index.jsx";
 import Explore from "./pages/Explore.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
-import AdminDashboard from "./pages/AdminDashboard.jsx";
 import OrganiserDashboard from "./pages/OrganiserDashboard.jsx";
 import Profile from "./pages/Profile.jsx";
+import ForgotPassword from "./pages/ForgotPassword.jsx";
 
 const router = createBrowserRouter([
   {
@@ -39,7 +39,7 @@ const router = createBrowserRouter([
 
       { path: "/login", element: <Login /> },
       { path: "/register", element: <Register /> },
-      { path: "/admin", element: <AdminDashboard /> },
+      { path: "/forgot-password", element: <ForgotPassword /> },
       { path: "/organiser", element: <OrganiserDashboard /> },
 
 

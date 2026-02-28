@@ -10,8 +10,7 @@ const router = express.Router();
 router.get("/my-managed-trips", verifyOrganiser, async (req, res) => {
     try {
         const trips = await Trip.find({
-            userId: req.user.id,
-            organiserStatus: "approved"
+            userId: req.user.id
         }).sort({ createdAt: -1 });
         res.json(trips);
     } catch (err) {
@@ -30,7 +29,10 @@ router.get("/join-requests", verifyOrganiser, async (req, res) => {
             .populate('tripId', 'destination organiserStatus')
             .sort({ createdAt: -1 });
 
-        res.json(requests);
+        // Filter out any bookings where tripId populate failed (orphaned or deleted trips)
+        const validRequests = requests.filter(req => req.tripId);
+
+        res.json(validRequests);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

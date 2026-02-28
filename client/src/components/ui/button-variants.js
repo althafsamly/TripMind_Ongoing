@@ -5,13 +5,13 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        /* 🔥 Primary Gradient Button */
+        /* 🔥 Primary Button */
         default:
-          "bg-linear-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-200/50 hover:from-blue-700 hover:to-purple-700",
+          "bg-blue-600 text-white shadow-lg shadow-blue-200/50 hover:bg-blue-700",
 
         /* ❗ Danger */
         destructive:
-          "bg-linear-to-r from-red-500 to-rose-600 text-white hover:from-red-600 hover:to-rose-700 shadow-md shadow-red-100",
+          "bg-red-600 text-white hover:bg-red-700 shadow-md shadow-red-100",
 
         /* ✨ Navbar / Secondary Button */
         outline:

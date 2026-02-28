@@ -104,7 +104,7 @@ io.use(async (socket, next) => {
 
         // Fetch user to get latest status and username
         const user = await User.findById(session.user.id);
-        if (!user || (!user.isVerified && user.role !== 'admin')) {
+        if (!user || (!user.isVerified)) {
             return next(new Error("User not verified"));
         }
 
@@ -141,7 +141,7 @@ io.on("connection", (socket) => {
                 status: "approved"
             });
 
-            if (!isApprovedMember && !isCreator && socket.user.role !== 'admin') {
+            if (!isApprovedMember && !isCreator) {
                 console.log(`User ${socket.user.username} (ID: ${socket.user.id}) ATTEMPTED to join room: trip_${tripId} WITHOUT APPROVAL/OWNERSHIP`);
                 socket.emit("error", { message: "You are not an approved member of this trip." });
                 return;
@@ -183,7 +183,7 @@ io.on("connection", (socket) => {
                 status: "approved"
             });
 
-            if (!isApprovedMember && !isCreator && socket.user.role !== 'admin') {
+            if (!isApprovedMember && !isCreator) {
                 console.error(`User ${socket.user.username} attempted to send message to trip_${tripId} WITHOUT APPROVAL`);
                 socket.emit("error", { message: "You are not an approved member of this trip." });
                 return;

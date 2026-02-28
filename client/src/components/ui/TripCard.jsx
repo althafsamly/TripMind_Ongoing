@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
-import { MapPin, Star, Clock, Calendar, ExternalLink } from 'lucide-react';
+import { MapPin, Star, Clock, Search, CheckCircle } from 'lucide-react';
 import { useNavigate } from "react-router-dom";
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import 'swiper/css/autoplay';
 
-const TripCard = ({ hotel, isHotel = true, tripId, tripHotelName }) => {
+const TripCard = ({ hotel, isHotel = true, tripId, tripHotelName, isSelected = false, onSelect = null, isOrganiser = false }) => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [imageArray, setImageArray] = useState([]);
   const navigate = useNavigate();
@@ -67,28 +67,23 @@ const TripCard = ({ hotel, isHotel = true, tripId, tripHotelName }) => {
     });
   };
 
+  const handleGoogleMapsSearch = () => {
+    const query = encodeURIComponent(`${isHotel ? hotel.hotelName : hotel.placeName} ${hotel.address || ''}`);
+    window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+  };
+
   return (
-    <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 group">
+    <div className={`bg-[#0a0a0a] rounded-[16px] overflow-hidden border transition-all duration-300 group flex flex-col ${isSelected ? 'border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'border-white/10 hover:border-white/30'}`}>
 
       {/* Image Slider */}
-      <div className="relative h-64 md:h-72 bg-linear-to-br from-blue-50/50 to-purple-50/50">
+      <div className="relative h-48 bg-black/50">
         {imageArray.length > 0 ? (
           <Swiper
             modules={[Navigation, Pagination, Autoplay]}
             spaceBetween={0}
             slidesPerView={1}
-            navigation={{
-              nextEl: '.swiper-button-next',
-              prevEl: '.swiper-button-prev',
-            }}
-            pagination={{
-              clickable: true,
-              dynamicBullets: true
-            }}
-            autoplay={{
-              delay: 4000,
-              disableOnInteraction: false
-            }}
+            pagination={{ clickable: true, dynamicBullets: true }}
+            autoplay={{ delay: 4000, disableOnInteraction: false }}
             onSlideChange={(swiper) => setActiveImageIndex(swiper.activeIndex)}
             className="h-full"
           >
@@ -97,119 +92,105 @@ const TripCard = ({ hotel, isHotel = true, tripId, tripHotelName }) => {
                 <img
                   src={img}
                   alt={`${hotel.hotelName || hotel.placeName || 'Destination'} - Image ${idx + 1}`}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
                   onError={(e) => handleImageError(e, idx)}
                   loading="lazy"
                 />
-                <div className="absolute inset-0 bg-linear-to-t from-black/20 via-transparent to-transparent"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent opacity-80"></div>
               </SwiperSlide>
             ))}
           </Swiper>
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="text-center">
-              <div className="text-6xl mb-4 opacity-20">
-                {isHotel ? '🏨' : '🏛️'}
-              </div>
-            </div>
+          <div className="w-full h-full flex items-center justify-center bg-white/5">
+            <span className="text-4xl opacity-50">{isHotel ? '🏨' : '🏛️'}</span>
           </div>
         )}
 
         {/* Rating Badge */}
         {hotel.rating && (
-          <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm px-3 py-2 rounded-full flex items-center gap-1 shadow-lg">
-            <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-            <span className="font-bold text-gray-800">{hotel.rating}</span>
+          <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md flex items-center gap-1 border border-white/10 z-10">
+            <span className="font-urbanist font-bold text-[12px] text-white">{hotel.rating}</span>
           </div>
         )}
 
-        {/* Category Badge */}
-        <div className="absolute top-4 left-4">
-          <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${isHotel
-            ? 'bg-blue-100 text-blue-700'
-            : 'bg-emerald-100 text-emerald-700'
-            }`}>
+        {/* Category Badge & Selection State */}
+        <div className="absolute top-3 left-3 flex flex-col items-start gap-2 z-10 w-full pr-6">
+          <span className={`px-2.5 py-1 rounded-md text-[10px] font-urbanist font-bold uppercase tracking-widest ${isHotel ? 'bg-white/10 text-white border border-white/20' : 'bg-white/10 text-white border border-white/20'} backdrop-blur-md`}>
             {isHotel ? 'Hotel' : 'Attraction'}
           </span>
+          {isSelected && (
+            <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 backdrop-blur-md px-2.5 py-1 rounded-md text-[10px] font-urbanist font-bold uppercase tracking-widest">
+              Booked ✅
+            </span>
+          )}
+
+          {/* Ensure Organiser Select Button is visible and clearly styled */}
+          {isOrganiser && isHotel && onSelect && (
+            <label className="flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/20 cursor-pointer hover:bg-white/10 transition-colors mt-auto self-end right-3 top-3 absolute">
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => onSelect(hotel)}
+                className="w-4 h-4 rounded border-gray-400 text-white focus:ring-0 bg-transparent cursor-pointer"
+              />
+              <span className={`text-[10px] font-urbanist font-bold uppercase tracking-widest ${isSelected ? 'text-emerald-400' : 'text-gray-300'}`}>
+                {isSelected ? 'Hotel Selected' : 'Select'}
+              </span>
+            </label>
+          )}
         </div>
       </div>
 
-      {/* Card Content */}
-      <div className="p-6">
+      {/* Card Content - Compact padding */}
+      <div className="p-4 flex flex-col flex-1">
         {/* Header */}
-        <div className="mb-4">
-          <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-1">
+        <div className="mb-3">
+          <h3 className="text-[16px] sm:text-[18px] font-urbanist font-bold text-white leading-tight mb-1 line-clamp-1">
             {isHotel ? hotel.hotelName || 'Hotel Name' : hotel.placeName || 'Attraction Name'}
           </h3>
 
-          {/* Location */}
+          {/* Location / Description */}
           {isHotel && hotel.address && (
-            <div className="flex items-start gap-2 text-sm text-gray-600 mb-3">
-              <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
-              <span className="line-clamp-1">{hotel.address}</span>
-            </div>
+            <p className="text-[12px] text-gray-400 font-inter line-clamp-1 mb-1">{hotel.address}</p>
           )}
-
-          {/* Description */}
-          <p className="text-gray-600 text-sm line-clamp-2">
+          <p className="text-[12px] text-gray-500 font-inter line-clamp-1">
             {isHotel ? hotel.description || 'Comfortable accommodation' : hotel.details || 'Popular tourist attraction'}
           </p>
         </div>
 
-        {/* Details Grid */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          {/* Price */}
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-linear-to-br from-blue-100 to-blue-50 flex items-center justify-center">
-              <span className="text-blue-600">💰</span>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">{isHotel ? 'Price' : 'Ticket'}</div>
-              <div className="font-semibold text-green-600">
-                {isHotel ? (hotel.price || '$100-$200') : (hotel.ticketPricing || 'Varies')}
-              </div>
-            </div>
+        {/* Details Mini Grid */}
+        <div className="flex items-center justify-between mb-4 border-t border-white/10 pt-3">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-inter text-gray-500 uppercase tracking-widest">{isHotel ? 'Price' : 'Ticket'}</span>
+            <span className="text-[14px] font-urbanist font-bold text-white">
+              {isHotel ? (hotel.price || '₹12000-₹25000 per night') : (hotel.ticketPricing || 'Varies')}
+            </span>
           </div>
-
-          {/* Best Time / Duration */}
-          {!isHotel ? (
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-linear-to-br from-emerald-100 to-emerald-50 flex items-center justify-center">
-                <Clock className="w-4 h-4 text-emerald-600" />
-              </div>
-              <div>
-                <div className="text-xs text-gray-500">Best Time</div>
-                <div className="font-semibold text-gray-700">
-                  {hotel.bestTimeToVisit || 'Morning'}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-linear-to-br from-purple-100 to-purple-50 flex items-center justify-center">
-                <Star className="w-4 h-4 text-purple-600" />
-              </div>
-              <div>
-                <div className="text-xs text-gray-500">Rating</div>
-                <div className="font-semibold text-gray-700">
-                  {hotel.rating || '4.5'}
-                </div>
-              </div>
-            </div>
-          )}
+          <div className="flex flex-col items-end">
+            <span className="text-[10px] font-inter text-gray-500 uppercase tracking-widest">{isHotel ? 'Rating' : 'Best Time'}</span>
+            <span className="text-[14px] font-urbanist font-bold text-white">
+              {isHotel ? (hotel.rating || '4.5') : (hotel.bestTimeToVisit || 'Morning')}
+            </span>
+          </div>
         </div>
 
-        {/* Action Button */}
-        <button
-          onClick={handleViewDetails}
-          className="w-full relative group/btn"
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl blur opacity-75 group-hover/btn:opacity-100 transition duration-500"></div>
-          <div className="relative px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 transform group-hover/btn:-translate-y-0.5 flex items-center justify-center gap-2">
-            {isHotel ? 'View Details & Book' : 'Add to Day Plan'}
-            <ExternalLink className="w-4 h-4" />
-          </div>
-        </button>
+        {/* Action Buttons */}
+        <div className="mt-auto flex gap-2">
+          <button
+            onClick={handleViewDetails}
+            className="flex-1 h-9 bg-white text-black hover:bg-gray-200 font-inter font-bold text-[12px] rounded-lg transition-colors flex items-center justify-center gap-1.5"
+          >
+            {isHotel ? 'Check Details' : 'View'}
+          </button>
+
+          <button
+            onClick={handleGoogleMapsSearch}
+            title="Open in Maps"
+            className="w-9 h-9 flex items-center justify-center bg-transparent border border-white/20 text-white rounded-lg hover:bg-white/10 transition-colors"
+          >
+            <MapPin className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </div>
   );

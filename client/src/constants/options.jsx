@@ -27,6 +27,13 @@ export const SelectTravelersList = [
     icon: '🧑‍🤝‍🧑',
     people: '6+',
   },
+  {
+    id: 5,
+    title: 'Community',
+    desc: 'Join a public community group of travelers.',
+    icon: '🌎',
+    people: '10+',
+  },
 ]
 
 export const SelectBudgetOptions = [

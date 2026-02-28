@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState, useEffect, useContext } from "react";
 import api from "../service/api";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
-import { Loader2, UserPlus, Sparkles, CheckCircle2 } from "lucide-react";
+import { AuthContext } from "../context/AuthContext";
+import { Loader2, UserPlus, CheckCircle2, Mail, Lock, User, Briefcase, ArrowRight } from "lucide-react";
 
 const Register = () => {
+    const { user, loading: authLoading } = useContext(AuthContext);
     const [credentials, setCredentials] = useState({
         username: "",
         email: "",
         password: "",
     });
 
-    // Get role from URL if present
     const [searchParams] = useSearchParams();
-    const initialRole = searchParams.get("role") === "admin" ? "admin" : "user";
+    const initialRole = "user";
     const [role, setRole] = useState(initialRole);
 
     const [loading, setLoading] = useState(false);
@@ -21,11 +21,21 @@ const Register = () => {
     const [success, setSuccess] = useState(null);
     const navigate = useNavigate();
 
-    // Update role if URL changes
+    // Redirect if already logged in
+    useEffect(() => {
+        if (!authLoading && user) {
+            if (user.role === 'organiser') {
+                navigate('/organiser');
+            } else {
+                navigate('/');
+            }
+        }
+    }, [user, authLoading, navigate]);
+
     useEffect(() => {
         const urlRole = searchParams.get("role");
-        if (urlRole === "admin") setRole("admin");
-        else if (urlRole === "user") setRole("user");
+        if (urlRole === "organiser") setRole("organiser");
+        else setRole("user");
     }, [searchParams]);
 
     const handleChange = (e) => {
@@ -40,9 +50,9 @@ const Register = () => {
         try {
             await api.post("/auth/register", {
                 ...credentials,
-                role: role // Send selected role
+                role: role
             });
-            setSuccess(`Registration successful! Please wait for admin approval for your ${role} account.`);
+            setSuccess(`Registration successful! ${role === 'organiser' ? 'Await Organiser approval.' : 'You can now log in.'}`);
             setLoading(false);
         } catch (err) {
             setError(err.response?.data?.message || err.message);
@@ -50,133 +60,154 @@ const Register = () => {
         }
     };
 
-    return (
-        <div className="min-h-screen flex justify-center items-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 px-4 py-12">
-            {/* Background decorative elements */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-20 right-10 w-72 h-72 bg-purple-400/10 rounded-full blur-3xl"></div>
-                <div className="absolute bottom-20 left-10 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl"></div>
+    if (authLoading) return (
+        <div className="h-screen bg-[#050505] flex items-center justify-center">
+            <div className="flex flex-col items-center gap-4">
+                <Loader2 className="w-8 h-8 animate-spin text-white" />
+                <span className="font-urbanist font-bold text-[10px] uppercase tracking-[0.4em] text-gray-500">Syncing Intelligence...</span>
             </div>
+        </div>
+    );
 
-            <div className="w-full max-w-md relative">
-                {/* Card */}
-                <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/50">
+    return (
+        <div className="flex min-h-screen lg:h-[calc(100vh-64px)] bg-[#050505] text-white selection:bg-white/20 overflow-y-auto lg:overflow-hidden">
 
-                    {/* Role Toggle */}
-                    {!success && (
-                        <div className="flex bg-gray-100 p-1 rounded-xl mb-8">
-                            <button
-                                onClick={() => setRole("user")}
-                                className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${role === "user"
-                                    ? "bg-white text-blue-600 shadow-sm"
-                                    : "text-gray-500 hover:text-gray-700"
-                                    }`}
-                            >
-                                User
-                            </button>
-                            <button
-                                onClick={() => setRole("organiser")}
-                                className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${role === "organiser"
-                                    ? "bg-white text-emerald-600 shadow-sm"
-                                    : "text-gray-500 hover:text-gray-700"
-                                    }`}
-                            >
-                                Organiser
-                            </button>
-                            <button
-                                onClick={() => setRole("admin")}
-                                className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all duration-300 ${role === "admin"
-                                    ? "bg-white text-purple-600 shadow-sm"
-                                    : "text-gray-500 hover:text-gray-700"
-                                    }`}
-                            >
-                                Admin
-                            </button>
-                        </div>
-                    )}
+            {/* Left Side: Form Panel */}
+            <div className="w-full lg:w-[40%] flex items-center justify-center p-3 lg:p-4 relative">
+                {/* Decorative background glow */}
+                <div className="absolute top-0 left-0 w-[400px] h-[400px] bg-white/[0.02] rounded-full blur-[80px] pointer-events-none transform -translate-x-1/3 -translate-y-1/3" />
 
-                    {success ? (
-                        // Success State
-                        <div className="text-center">
-                            <div className="flex justify-center mb-6">
-                                <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
-                                    <CheckCircle2 className="w-10 h-10 text-white" />
+                <div className="w-full max-w-[360px] relative z-10">
+                    <div className="mb-4">
+                        {/* Custom Logo (Compact) */}
+                        <Link to="/" className="inline-flex flex-col group cursor-pointer transition-transform duration-300 select-none mb-1">
+                            <div className="flex items-end font-sans font-black tracking-[0.1em] text-white text-[22px] leading-[0.8]">
+                                <span>TRAVE</span>
+                                <div className="relative flex flex-col items-center justify-end w-[14px] h-[22px] ml-0.5">
+                                    <div className="absolute top-0 w-[8px] h-[4px] border-[1.5px] border-white border-b-0 rounded-t-[2px]"></div>
+                                    <div className="w-full h-[14px] border-l-[3px] border-b-[3px] border-t-[1px] border-r-[1px] border-white rounded-[2px] mt-1 relative flex justify-center overflow-hidden bg-[#050505]">
+                                        <div className="w-[1px] h-full bg-white opacity-40 translate-x-[0.5px]"></div>
+                                    </div>
+                                    <div className="flex justify-between w-[12px] mt-[1px]">
+                                        <div className="w-[3px] h-[3px] bg-white rounded-full"></div>
+                                        <div className="w-[3px] h-[3px] bg-white rounded-full"></div>
+                                    </div>
                                 </div>
                             </div>
-                            <h2 className="text-2xl font-bold mb-3 bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                                Registration Successful!
-                            </h2>
-                            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-4 rounded-xl mb-6">
-                                <p className="text-sm">{success}</p>
+                        </Link>
+
+                        <h1 className="text-[24px] font-urbanist font-bold text-white tracking-tight leading-tight">
+                            Create Profile.
+                        </h1>
+                        <p className="text-gray-400 font-inter text-[13px]">
+                            Join the journey.
+                        </p>
+                    </div>
+
+                    <div className="bg-[#0a0a0a] rounded-[20px] border border-white/10 p-4 shadow-2xl relative overflow-hidden">
+
+                        {!success && (
+                            <div className="flex bg-[#050505] p-1 rounded-[10px] border border-white/5 mb-3">
+                                <button
+                                    onClick={() => setRole("user")}
+                                    className={`flex-1 py-1.5 rounded-[8px] text-[13px] font-inter font-bold transition-all duration-300 flex items-center justify-center gap-2 ${role === "user"
+                                        ? "bg-white text-black shadow-md"
+                                        : "text-gray-500 hover:text-white"
+                                        }`}
+                                >
+                                    <User className="w-3.5 h-3.5" />
+                                    Traveler
+                                </button>
+                                <button
+                                    onClick={() => setRole("organiser")}
+                                    className={`flex-1 py-1.5 rounded-[8px] text-[13px] font-inter font-bold transition-all duration-300 flex items-center justify-center gap-2 ${role === "organiser"
+                                        ? "bg-emerald-500 text-black shadow-md shadow-emerald-500/20"
+                                        : "text-gray-500 hover:text-white"
+                                        }`}
+                                >
+                                    <Briefcase className="w-3.5 h-3.5" />
+                                    Organiser
+                                </button>
                             </div>
-                            <Link
-                                to="/login"
-                                className="inline-block bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-3 px-8 rounded-xl transition-all shadow-lg"
-                            >
-                                Go to Login
-                            </Link>
-                        </div>
-                    ) : (
-                        // Registration Form
-                        <>
-                            {/* Icon */}
-                            <div className="flex justify-center mb-6">
-                                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform bg-gradient-to-br ${role === 'admin' ? 'from-purple-600 to-pink-600' : 'from-blue-500 to-purple-600'
-                                    }`}>
-                                    <UserPlus className="w-8 h-8 text-white" />
+                        )}
+
+                        {success ? (
+                            <div className="text-center py-4 animate-in fade-in zoom-in duration-500">
+                                <div className="flex justify-center mb-4">
+                                    <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-[14px] flex items-center justify-center">
+                                        <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+                                    </div>
                                 </div>
+                                <h2 className="text-[22px] font-urbanist font-bold text-white mb-2 tracking-tight">
+                                    Verified!
+                                </h2>
+                                <div className="bg-white/5 border border-white/10 text-gray-300 px-3 py-3 rounded-[10px] text-[13px] font-inter mb-6">
+                                    {success}
+                                </div>
+                                <Link
+                                    to="/login"
+                                    className={`inline-flex items-center justify-center h-11 px-6 font-inter font-bold text-[14px] rounded-[10px] transition-all
+                                        ${role === 'organiser' ? 'bg-emerald-500 hover:bg-emerald-400 text-black' : 'bg-white hover:bg-gray-200 text-black'}
+                                    `}
+                                >
+                                    Login Now
+                                </Link>
                             </div>
-
-                            {/* Title */}
-                            <h2 className={`text-3xl font-bold text-center mb-2 bg-clip-text text-transparent bg-gradient-to-r ${role === 'admin' ? 'from-purple-600 to-pink-600' : 'from-blue-600 to-purple-600'
-                                }`}>
-                                {role === 'admin' ? 'Create Admin Account' : 'Create User Account'}
-                            </h2>
-                            <p className="text-center text-gray-500 mb-8 text-sm">Join us and start planning your perfect trip</p>
-
-                            {/* Form */}
-                            <div className="space-y-5">
-                                <div>
-                                    <label className="block text-gray-700 text-sm font-semibold mb-2" htmlFor="username">
-                                        Username
+                        ) : (
+                            <form className="space-y-3.5" autoComplete="off">
+                                <div className="space-y-1">
+                                    <label className="block text-[10px] font-inter font-bold text-gray-400 uppercase tracking-widest" htmlFor="username">
+                                        Alias / Username
                                     </label>
-                                    <input
-                                        type="text"
-                                        id="username"
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                                        placeholder="Choose a username"
-                                    />
+                                    <div className="relative">
+                                        <UserPlus className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                        <input
+                                            type="text"
+                                            id="username"
+                                            onChange={handleChange}
+                                            className="w-full pl-11 pr-5 py-2.5 bg-[#050505] border border-white/10 rounded-[10px] focus:border-white/30 focus:ring-1 focus:ring-white/30 outline-none transition-all text-white font-inter text-[14px] placeholder-gray-600"
+                                            placeholder="Username"
+                                            autoComplete="off"
+                                        />
+                                    </div>
                                 </div>
 
-                                <div>
-                                    <label className="block text-gray-700 text-sm font-semibold mb-2" htmlFor="email">
-                                        Email Address
+                                <div className="space-y-1">
+                                    <label className="block text-[10px] font-inter font-bold text-gray-400 uppercase tracking-widest" htmlFor="email">
+                                        Email Profile
                                     </label>
-                                    <input
-                                        type="email"
-                                        id="email"
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                                        placeholder="you@example.com"
-                                    />
+                                    <div className="relative">
+                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                        <input
+                                            type="email"
+                                            id="email"
+                                            onChange={handleChange}
+                                            className="w-full pl-11 pr-5 py-2.5 bg-[#050505] border border-white/10 rounded-[10px] focus:border-white/30 focus:ring-1 focus:ring-white/30 outline-none transition-all text-white font-inter text-[14px] placeholder-gray-600"
+                                            placeholder="you@example.com"
+                                            autoComplete="off"
+                                        />
+                                    </div>
                                 </div>
 
-                                <div>
-                                    <label className="block text-gray-700 text-sm font-semibold mb-2" htmlFor="password">
-                                        Password
+                                <div className="space-y-1">
+                                    <label className="block text-[10px] font-inter font-bold text-gray-400 uppercase tracking-widest" htmlFor="password">
+                                        Security Key
                                     </label>
-                                    <input
-                                        type="password"
-                                        id="password"
-                                        onChange={handleChange}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                                        placeholder="Create a strong password"
-                                    />
+                                    <div className="relative">
+                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                        <input
+                                            type="password"
+                                            id="password"
+                                            onChange={handleChange}
+                                            className="w-full pl-11 pr-5 py-2.5 bg-[#050505] border border-white/10 rounded-[10px] focus:border-white/30 focus:ring-1 focus:ring-white/30 outline-none transition-all text-white font-inter text-[14px] placeholder-gray-600"
+                                            placeholder="Password"
+                                            autoComplete="new-password"
+                                        />
+                                    </div>
                                 </div>
 
                                 {error && (
-                                    <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">
+                                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-3 py-2 rounded-[10px] text-[12px] font-inter">
                                         {error}
                                     </div>
                                 )}
@@ -184,45 +215,62 @@ const Register = () => {
                                 <button
                                     onClick={handleClick}
                                     disabled={loading}
-                                    className={`w-full text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 shadow-lg mt-2 ${role === 'admin'
-                                        ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-purple-500/30'
-                                        : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-blue-500/30'
+                                    className={`w-full mt-1 h-11 font-urbanist text-[16px] font-bold rounded-[10px] transition-all flex items-center justify-center gap-2 group ${role === "organiser"
+                                        ? "bg-emerald-500 hover:bg-emerald-400 text-black border border-emerald-400/20"
+                                        : "bg-white hover:bg-gray-200 text-black border border-white/20"
                                         }`}
                                 >
-                                    {loading && <Loader2 className="h-5 w-5 animate-spin" />}
-                                    {loading ? "Creating Account..." : "Create Account"}
+                                    {loading ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            Joining...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Register
+                                            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                        </>
+                                    )}
                                 </button>
-                            </div>
+                            </form>
+                        )}
+                    </div>
 
-                            {/* Divider */}
-                            <div className="flex items-center gap-4 my-6">
-                                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-                                <span className="text-gray-400 text-sm">or</span>
-                                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-                            </div>
-
-                            {/* Login Link */}
-                            <div className="text-center">
-                                <p className="text-gray-600 text-sm">
-                                    Already have an account?{" "}
-                                    <Link
-                                        to="/login"
-                                        className="font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent hover:from-blue-700 hover:to-purple-700 transition-all"
-                                    >
-                                        Sign In
-                                    </Link>
-                                </p>
-                            </div>
-                        </>
-                    )}
+                    <div className="mt-4 text-center text-gray-500 font-inter text-[13px]">
+                        Already active?{" "}
+                        <Link
+                            to="/login"
+                            className="text-white font-bold hover:text-gray-300 transition-colors border-b border-white/30 hover:border-white pb-0.5"
+                        >
+                            Sign In
+                        </Link>
+                    </div>
                 </div>
-
-                {/* Bottom text */}
-                <p className="text-center mt-6 text-gray-500 text-xs flex items-center justify-center gap-1">
-                    <Sparkles className="w-3 h-3" />
-                    Secure registration powered by Travel Around
-                </p>
             </div>
+
+            {/* Right Side: Image Panel */}
+            <div className="hidden lg:flex lg:w-[60%] relative overflow-hidden group">
+                <div className="absolute inset-0 bg-black/30 z-10 transition-colors duration-700 pointer-events-none group-hover:bg-black/10"></div>
+                <img
+                    src="https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2021&auto=format&fit=crop"
+                    alt="Travel Background"
+                    className="w-full h-full object-cover object-center opacity-90 animate-in fade-in duration-1000 group-hover:scale-105 transition-transform duration-[20s]"
+                />
+                <div className="absolute inset-0 bg-gradient-to-l from-transparent to-[#050505] z-20"></div>
+
+                <div className="absolute top-16 right-16 z-30 max-w-md text-right">
+                    <p className="font-inter font-bold uppercase tracking-widest text-[11px] text-gray-300 mb-4 flex items-center justify-end gap-2">
+                        System Setup <span className="w-8 h-px bg-gray-300"></span>
+                    </p>
+                    <h2 className="font-urbanist font-bold text-[48px] leading-tight text-white mb-4">
+                        Unlock the Globe.
+                    </h2>
+                    <p className="font-inter text-gray-400 text-[16px] leading-relaxed ml-auto max-w-sm">
+                        Become a part of the network. Generate AI itineraries, chat with experts, and document your coordinates.
+                    </p>
+                </div>
+            </div>
+
         </div>
     );
 };

@@ -81,11 +81,11 @@ async function fetchRealHotels(lat, lng, budget, locationName) {
       // Calculate realistic price based on budget and tags
       let pricePerNight;
       if (budget === 'Cheap') {
-        pricePerNight = element.tags.tourism === 'hotel' ? '$80-$120' : '$40-$80';
+        pricePerNight = element.tags.tourism === 'hotel' ? '₹2500-₹5000' : '₹1000-₹2500';
       } else if (budget === 'Mid-range') {
-        pricePerNight = '$120-$250';
+        pricePerNight = '₹5000-₹12000';
       } else { // Luxury
-        pricePerNight = element.tags['building:levels'] > 10 ? '$300-$600' : '$250-$400';
+        pricePerNight = element.tags['building:levels'] > 10 ? '₹15000-₹40000' : '₹12000-₹25000';
       }
 
       // Generate rating (4.0 to 4.8, slightly random)
@@ -119,25 +119,33 @@ async function fetchRealHotels(lat, lng, budget, locationName) {
 async function fetchTouristPlaces(lat, lng, locationName) {
   console.log("🗺️ Fetching places...");
   try {
-    const radius = 10000; // Reduced to 10km radius
+    const radius = 25000; // Increased to 25km for wider search
     // Broader, smarter query for attractions
     const query = `
       [out:json][timeout:60];
       (
-        node["tourism"~"attraction|museum|gallery|viewpoint|castle|zoo|theme_park"](around:${radius},${lat},${lng});
-        node["historic"~"monument|castle|archaeological_site"](around:${radius},${lat},${lng});
-        node["leisure"~"park|garden"](around:${radius},${lat},${lng});
+        node["tourism"~"attraction|museum|gallery|viewpoint|castle|zoo|theme_park|monument|ruins"](around:${radius},${lat},${lng});
+        node["historic"~"monument|castle|archaeological_site|ruins"](around:${radius},${lat},${lng});
+        node["leisure"~"park|garden|nature_reserve"](around:${radius},${lat},${lng});
+        way["tourism"~"attraction|museum|castle"](around:${radius},${lat},${lng});
+        way["historic"~"monument|castle"](around:${radius},${lat},${lng});
       );
-      out body;
+      out center;
       >;
       out skel qt;
     `;
 
     const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
     if (!response.ok) {
-      throw new Error(`Overpass API error: ${response.status} ${response.statusText}`);
+      console.warn("Overpass API failed, will rely on AI knowledge");
+      return [];
     }
     const data = await response.json();
+
+    if (!data.elements || data.elements.length === 0) {
+      console.warn("No places found nearby, AI will need to suggest real locations");
+      return [];
+    }
 
     const placePromises = data.elements.slice(0, 25).map(async (element) => {
       const placeName = element.tags.name || `${locationName} Point of Interest`;
@@ -170,9 +178,9 @@ async function fetchTouristPlaces(lat, lng, locationName) {
       // Smart pricing based on type
       let ticketPricing = 'Free';
       if (element.tags.tourism === 'museum' || element.tags.tourism === 'zoo') {
-        ticketPricing = '$12-$25';
+        ticketPricing = '₹500-₹1500';
       } else if (element.tags.historic) {
-        ticketPricing = '$5-$15';
+        ticketPricing = '₹100-₹500';
       }
 
       // Calculate realistic best time
@@ -241,7 +249,7 @@ export async function generateTripPlan(location, days, budget, traveler) {
     }
 
     // 4. Create Smart Itinerary using Gemini AI for Day Planning
-    const itinerary = await createSmartItinerary(allPlaces, days, location, traveler, budget);
+    const itinerary = await createSmartItinerary(allPlaces, hotels, days, location, traveler, budget);
 
     // 5. Fetch Destination Photo
     const photoUrl = await fetchPlaceImage(location, location, 'city');
@@ -269,75 +277,137 @@ export async function generateTripPlan(location, days, budget, traveler) {
 }
 
 // --- 6. AI-POWERED SMART ITINERARY PLANNER ---
-async function createSmartItinerary(places, days, location, traveler, budget) {
+async function createSmartItinerary(places, hotels, days, location, traveler, budget) {
   // If we have Gemini, use it to intelligently group places by day
   const prompt = `
-    Generate a detailed ${days}-day travel itinerary for a ${traveler} visiting ${location} with a ${budget} budget.
+    Generate a highly detailed and optimized ${days}-day travel itinerary for a ${traveler} visiting ${location} with a ${budget} budget.
+    ${traveler === 'Community' ? 'Special Instruction: This is an OPEN COMMUNITY group trip. Focus on activities that are group-friendly, socially engaging, and suitable for meeting new people (e.g., group tours, shared dinners, interactive events, safe public spaces).' : ''}
     
-    The Output must be in valid JSON format.
-    The itinerary should include ${places.length} specific places: ${places.map(p => p.placeName).join(', ')}.
+    The Output must be a valid JSON object.
     
-    Structure the response as a JSON array of objects, where each object represents a day:
-    [
-      {
-        "day": 1,
-        "theme": "Theme of the day (e.g., Historical Tour)",
-        "bestTimeToVisit": "Best time for these places",
-        "places": ["ExactPlaceName1", "ExactPlaceName2"]
-      }
-    ]
+    Here is a list of real landmarks we found in our database: ${places.length > 0 ? places.map(p => p.placeName).join(', ') : 'NONE FOUND'}.
     
-    Ensure the places are grouped logically by proximity and opening hours.
+    CRITICAL INSTRUCTIONS:
+    1. If the list above is empty, you MUST use your own internal knowledge to provide REAL, FAMOUS tourist landmarks in ${location}. 
+    2. USE ACTUAL NAMES ONLY. Every place name in your itinerary MUST be a real, recognizable place that a tourist would visit in ${location}. 
+    3. NEVER use generic placeholders, index numbers, or labels like "Discovery", "Hub", or "Attraction" as names.
+    4. Provide specific details, visit times, and costs in Indian Rupees (₹) for each real location.
+
+    Example of desired placeName: "The Eiffel Tower", "Central Park", "Colosseum", "India Gate".
+
+    Structure exactly like this:
+    {
+      "itinerary": [
+        {
+          "day": 1,
+          "theme": "Theme Label",
+          "area": "Main Area",
+          "suggestedHotel": "${hotels[0]?.hotelName || 'Grand Hotel'}",
+          "totalTime": "8h",
+          "totalExpense": "Approx INR (₹)",
+          "places": [
+            {
+              "placeName": "Actual Real Famous Landmark",
+              "details": "Real description of why it's famous",
+              "visitTime": "10:00 AM",
+              "duration": "2h",
+              "estimatedCost": "₹500",
+              "nearbyTip": "Pro tip here"
+            }
+          ]
+        }
+      ]
+    }
   `;
 
   try {
     // UPDATED MODEL NAME
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const result = await model.generateContent(prompt);
-    const aiItinerary = JSON.parse(result.response.text());
+    let text = result.response.text();
 
-    // Map AI suggestions back to our full place objects
+    // Clean JSON if AI wraps it in markdown code blocks
+    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    const data = JSON.parse(text);
+    let aiItinerary = data.itinerary || data;
+
+    // --- STRIKE 1: Placeholder Validation ---
+    const hasPlaceholders = JSON.stringify(aiItinerary).toLowerCase().includes('local attraction') ||
+      JSON.stringify(aiItinerary).toLowerCase().includes('activity 1');
+
+    if (hasPlaceholders) {
+      console.warn("Detected placeholders in AI response, retrying with stricter enforcement...");
+      const retryPrompt = `${prompt}\n\nERROR: Your previous response contained generic names like "Local Attraction". 
+      I REPEAT: DO NOT USE PLACEHOLDERS. Use ACTUAL FAMOUS NAMES of real landmarks in ${location} from your training data. 
+      Example: If in Agra, use "Taj Mahal", not "Local Attraction".`;
+
+      const retryResult = await model.generateContent(retryPrompt);
+      let retryText = retryResult.response.text();
+      retryText = retryText.replace(/```json/g, "").replace(/```/g, "").trim();
+      const retryData = JSON.parse(retryText);
+      aiItinerary = retryData.itinerary || retryData;
+    }
+
+    // Map AI suggestions back to our full place objects and enrich with AI details
     return aiItinerary.map(dayPlan => ({
       day: dayPlan.day,
       theme: dayPlan.theme,
+      area: dayPlan.area || "Mixed",
+      suggestedHotel: dayPlan.suggestedHotel || "Recommended Stay",
+      totalTime: dayPlan.totalTime || "8h",
+      totalExpense: dayPlan.totalExpense || "Varies",
       places: dayPlan.places
-        .map(name => places.find(p => p.placeName === name))
-        .filter(Boolean) // Remove any not found
+        .map((p, idx) => {
+          const original = places.find(orig => orig.placeName.toLowerCase() === p.placeName.toLowerCase());
+
+          // If we still have a placeholder despite all warnings, let's at least name it after the city
+          let finalName = p.placeName;
+          if (finalName.toLowerCase().includes('local attraction')) {
+            finalName = `${location} Landmark ${idx + 1}`;
+          }
+
+          return {
+            placeName: finalName,
+            details: original?.details || p.details || `Discover the amazing history and culture of ${finalName} in ${location}.`,
+            imageUrl: original?.imageUrl || `https://loremflickr.com/800/600/${encodeURIComponent(finalName.toLowerCase())},landmark`,
+            geoCoordinates: original?.geoCoordinates || { lat: 0, lng: 0 },
+            ticketPricing: original?.ticketPricing || p.estimatedCost || 'Free',
+            rating: original?.rating || (4.0 + Math.random() * 0.9).toFixed(1),
+            travelTime: original?.travelTime || "20-30 min",
+            bestTimeToVisit: original?.bestTimeToVisit || "Morning",
+            visitTime: p.visitTime,
+            duration: p.duration,
+            estimatedCost: p.estimatedCost,
+            nearbyTip: p.nearbyTip
+          };
+        })
     }));
   } catch (aiError) {
     console.log("AI planning failed, using default grouping", aiError);
     // Fallback to simple distribution
-    return defaultItineraryGrouping(places, days);
+    return defaultItineraryGrouping(places, days, location);
   }
 }
 
 // --- 7. DEFAULT ITINERARY GROUPING (Fallback) ---
-function defaultItineraryGrouping(places, days) {
-  const placesPerDay = Math.max(4, Math.ceil(places.length / days));
+function defaultItineraryGrouping(places, days, location) {
+  const placesPerDay = Math.max(3, Math.ceil(places.length / days));
   const itinerary = [];
 
   for (let i = 0; i < days; i++) {
     const start = i * placesPerDay;
     const end = Math.min(start + placesPerDay, places.length);
-    const dayPlaces = places.slice(start, end);
+    let dayPlaces = places.slice(start, end);
 
-    // Ensure minimum 4 places per day with fallbacks
-    while (dayPlaces.length < 4) {
-      dayPlaces.push({
-        placeName: `Local Attraction ${dayPlaces.length + 1}`,
-        details: 'Popular local spot',
-        imageUrl: '',
-        geoCoordinates: { lat: 0, lng: 0 },
-        ticketPricing: 'Free',
-        rating: '4.0',
-        travelTime: '15 minutes',
-        bestTimeToVisit: '9 AM - 6 PM'
-      });
+    // If we absolutely have no real places left, don't use "Local Attraction"
+    // Instead, use location-specific naming that sounds better, but prioritize real results
+    if (dayPlaces.length === 0 && places.length > 0) {
+      dayPlaces = [places[i % places.length]]; // Reuse a real place if necessary
     }
 
     itinerary.push({
       day: i + 1,
-      theme: `Day ${i + 1} Exploration`,
+      theme: `Exploring ${location} - Part ${i + 1}`,
       places: dayPlaces
     });
   }
@@ -390,47 +460,34 @@ function getFallbackData(location, days, budget) {
     ],
     itinerary: Array.from({ length: days }, (_, i) => ({
       day: i + 1,
-      theme: `Day ${i + 1} Exploration`,
+      theme: `Day ${i + 1} Discovery`,
+      area: 'Downtown',
+      totalTime: '8h',
+      totalExpense: budget === 'Cheap' ? '40' : '100',
       places: [
         {
-          placeName: `${location} Central Park`,
-          details: 'Beautiful green space for relaxation',
+          placeName: `${location} Central Hub`,
+          details: 'The beating heart of the city.',
           imageUrl: attractionImage,
           geoCoordinates: { lat: 40.7829, lng: -73.9654 },
-          ticketPricing: 'Free',
+          visitTime: '10:00 AM',
+          duration: '2h',
+          estimatedCost: '₹800',
+          nearbyTip: 'Great local coffee shops are just around the corner.',
           rating: '4.5',
-          travelTime: '15 minutes',
-          bestTimeToVisit: '8 AM - 8 PM'
+          travelTime: '15 min'
         },
         {
-          placeName: `${location} Museum`,
-          details: 'Explore local history and culture',
+          placeName: `${location} Cultural Museum`,
+          details: 'A deep dive into local heritage.',
           imageUrl: attractionImage,
           geoCoordinates: { lat: 40.7614, lng: -73.9776 },
-          ticketPricing: '$15-25',
+          visitTime: '1:00 PM',
+          duration: '3h',
+          estimatedCost: '₹2000',
+          nearbyTip: 'The rooftop terrace has the best views.',
           rating: '4.3',
-          travelTime: '20 minutes',
-          bestTimeToVisit: '10 AM - 6 PM'
-        },
-        {
-          placeName: `${location} Market`,
-          details: 'Local market with food and souvenirs',
-          imageUrl: attractionImage,
-          geoCoordinates: { lat: 40.7223, lng: -73.9873 },
-          ticketPricing: 'Free',
-          rating: '4.2',
-          travelTime: '25 minutes',
-          bestTimeToVisit: '11 AM - 7 PM'
-        },
-        {
-          placeName: `${location} Landmark`,
-          details: 'Iconic attraction representing the area',
-          imageUrl: attractionImage,
-          geoCoordinates: { lat: 40.7505, lng: -73.9934 },
-          ticketPricing: '$10-20',
-          rating: '4.4',
-          travelTime: '30 minutes',
-          bestTimeToVisit: '9 AM - 5 PM'
+          travelTime: '20 min'
         }
       ]
     })),
@@ -440,8 +497,8 @@ function getFallbackData(location, days, budget) {
 
 // --- 9. PRICE HELPER ---
 function getPriceForBudget(budget) {
-  if (budget === 'Cheap') return '$50-$100 per night';
-  if (budget === 'Mid-range') return '$100-$200 per night';
-  if (budget === 'Luxury') return '$200-$500 per night';
-  return '$100-$200 per night';
+  if (budget === 'Cheap') return '₹4000-₹8000 per night';
+  if (budget === 'Mid-range') return '₹8000-₹16000 per night';
+  if (budget === 'Luxury') return '₹16000-₹40000 per night';
+  return '₹8000-₹16000 per night';
 }
