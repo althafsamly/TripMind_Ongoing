@@ -68,18 +68,18 @@ export default function Hero() {
                         Travel Around builds your itinerary in minutes. Find hotels where you're going. Travel smarter, not harder.
                     </p>
 
-                    <div className="flex flex-row items-center gap-4">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
                         <Button
                             onClick={() => navigate(user ? "/create-trip" : "/login")}
-                            className="h-12 flex items-center px-6 text-black bg-white hover:bg-gray-200 font-inter font-bold text-[14px] transition-all rounded-sm active:scale-95"
+                            className="h-14 sm:h-12 w-full sm:w-auto flex items-center justify-center px-8 text-black bg-white hover:bg-gray-200 font-inter font-bold text-[14px] transition-all rounded-sm active:scale-95 shadow-xl shadow-white/5"
                         >
                             Start planning
                         </Button>
 
-                        <Link to="#learn-more">
+                        <Link to="#learn-more" className="w-full sm:w-auto">
                             <Button
                                 variant="outline"
-                                className="h-12 px-6 text-white border border-white bg-transparent hover:bg-white/20 font-inter font-bold text-[14px] transition-all rounded-sm shadow-none active:scale-95"
+                                className="h-14 sm:h-12 w-full px-8 text-white border border-white/30 bg-white/5 backdrop-blur-sm hover:border-white hover:bg-white/10 font-inter font-bold text-[14px] transition-all rounded-sm shadow-none active:scale-95"
                             >
                                 Learn more
                             </Button>

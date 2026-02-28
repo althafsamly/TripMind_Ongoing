@@ -30,22 +30,13 @@ export function ToastProvider({ children }) {
       }
     }
 
-    setToasts((prev) => {
-      const existing = prev.find(t => t.id === id);
-      if (existing) {
-        // update
-        return prev.map(t => t.id === id ? { ...t, title, description, action, duration: duration ?? 4000, type } : t);
-      } else {
-        return [...prev, { id, title, description, action, duration: duration ?? 4000, type }];
-      }
-    });
+    setToasts([{ id, title, description, action, duration: duration ?? 4000, type }]);
 
-    // Always set timeout to auto-dismiss
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, duration ?? 4000);
 
-    return { id };
+    return { id, dismiss: () => clearTimeout(timer) };
   };
 
   return (
