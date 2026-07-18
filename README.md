@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🧠 TravelAround AI — Intelligent Group Travel Planning Platform
 
 <div align="center">
@@ -260,3 +261,7 @@ This project is licensed under the **MIT License**.
 ---
 
 ⭐ If you find this project useful, don’t forget to **star the repository**!
+=======
+# TripMind_Ongoing
+This is where we all work together
+>>>>>>> 4bd5c9f99b9f40e632211a59e107dc633d54dcf2
