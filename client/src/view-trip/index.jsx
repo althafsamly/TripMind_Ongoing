@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { MapPin, Star, Clock, Calendar, Navigation, Globe, Share2, Users, Shield, CheckCircle, MessageCircle, Zap, Compass, Sparkles, UserX, Trash2 } from "lucide-react";
+import { MapPin, Star, Clock, Calendar, Navigation, Globe, Share2, Users, Shield, CheckCircle, Zap, Compass, Sparkles, UserX, Trash2 } from "lucide-react";
+
 import TripCard from "../components/ui/TripCard";
 import ItinerarySection from '../components/ItinerarySection';
 import api from "../service/api";
@@ -391,16 +392,11 @@ export default function ViewTrip() {
                       </div>
                       <div>
                         <p className="text-[18px] font-urbanist font-bold text-white">Access Granted</p>
-                        <p className="text-[12px] font-inter text-gray-400">Explore the full itinerary and chat.</p>
+                        <p className="text-[12px] font-inter text-gray-400">Explore the full itinerary.</p>
+
                       </div>
                     </div>
-                    <Link
-                      to={`/chat?tripId=${id}`}
-                      className="w-full h-12 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-black rounded-lg font-inter font-bold transition-colors"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      Crew Chat Room
-                    </Link>
+
                   </div>
                 ) : bookingStatus === 'pending' ? (
                   <div className="space-y-4">
@@ -504,15 +500,7 @@ export default function ViewTrip() {
 
               <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-4 w-full">
 
-                {bookingStatus === 'approved' && (
-                  <Link
-                    to={`/chat?tripId=${id}`}
-                    className="h-12 px-8 bg-white hover:bg-gray-200 text-black font-inter font-bold rounded-lg transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    Chat with Approved Members
-                  </Link>
-                )}
+
 
                 <button
                   onClick={() => setShowTripDetails(true)}

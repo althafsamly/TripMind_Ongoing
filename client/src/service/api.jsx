@@ -1,8 +1,7 @@
 import axios from "axios";
 
-const isProd = import.meta.env.PROD;
 const api = axios.create({
-    baseURL: isProd ? "/api" : "http://localhost:5000/api",
+    baseURL: "/api", // Vite proxy handles this in dev; server handles it in prod
     withCredentials: true, // Enable cookies for session
 });
 

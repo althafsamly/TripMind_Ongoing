@@ -13,7 +13,7 @@ import Layout from "./Layout";
 
 import About from "./components/pages/About";
 import Contact from "./components/pages/Contact";
-import Chat from "./chat/index.jsx";
+
 import Explore from "./pages/Explore.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
@@ -34,7 +34,7 @@ const router = createBrowserRouter([
 
       { path: "/my-trips", element: <MyTrips /> },
       { path: "/explore", element: <Explore /> },
-      { path: "/chat", element: <Chat /> },
+
       { path: "/profile", element: <Profile /> },
 
       { path: "/login", element: <Login /> },

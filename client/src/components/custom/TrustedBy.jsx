@@ -16,7 +16,7 @@ export default function TrustedBy() {
                     </div>
                     <div className="md:w-1/2 md:pl-12 lg:pl-24">
                         <p className="text-lg text-gray-300 font-medium leading-relaxed mb-8">
-                            Travel Around has helped thousands plan better trips. Our users spend less time planning and more time experiencing the world.
+                            Trip Mind has helped thousands plan better trips. Our users spend less time planning and more time experiencing the world.
                         </p>
                         <div className="flex flex-wrap items-center gap-6">
                             <Link to="/create-trip">

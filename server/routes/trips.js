@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import Trip from "../models/Trip.js";
 import User from "../models/User.js";
 import Booking from "../models/Booking.js";
-import Message from "../models/Message.js";
+
 import jwt from "jsonwebtoken";
 import { verifyToken } from "../middleware/authMiddleware.js";
 
@@ -168,9 +168,7 @@ router.delete("/:id", verifyToken, async (req, res) => {
         const bookingDeleteResult = await Booking.deleteMany({ tripId: new mongoose.Types.ObjectId(tripId) });
         console.log(`[DELETE_TRIP] Cascade deleted ${bookingDeleteResult.deletedCount} bookings`);
 
-        // Cascade delete: Remove all messages for this trip
-        const messageDeleteResult = await Message.deleteMany({ tripId: new mongoose.Types.ObjectId(tripId) });
-        console.log(`[DELETE_TRIP] Cascade deleted ${messageDeleteResult.deletedCount} messages`);
+
 
         // Cleanup: Remove from all users' favorites
         await User.updateMany({}, { $pull: { favorites: tripId } });

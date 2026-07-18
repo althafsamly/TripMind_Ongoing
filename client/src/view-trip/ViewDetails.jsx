@@ -3,7 +3,8 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, MapPin, Star, Clock, Calendar,
   Shield, CheckCircle, Navigation,
-  Hotel, Map, Clock3, DollarSign, Users, MessageSquare, Tag, AlertCircle, Share2, Info, LayoutGrid, List, Zap, Globe, ArrowRight
+  Hotel, Map, Clock3, DollarSign, Users, Tag, AlertCircle, Share2, Info, LayoutGrid, List, Zap, Globe, ArrowRight
+
 } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation as SwiperNav, Pagination, Autoplay } from 'swiper/modules';
@@ -361,15 +362,7 @@ const ViewDetails = () => {
                   </div>
                 )}
 
-                {bookingStatus === 'approved' && (
-                  <button
-                    onClick={() => navigate('/chat', { state: { tripId } })}
-                    className="w-full h-16 bg-white text-black hover:bg-gray-200 rounded-sm font-urbanist font-black text-[16px] uppercase tracking-widest flex items-center justify-center gap-4 transition-all cursor-pointer shadow-lg"
-                  >
-                    <MessageSquare className="w-5 h-5" />
-                    Open Chat
-                  </button>
-                )}
+
               </div>
 
               <div className="pt-8 border-t border-white/5 space-y-8 relative z-10">

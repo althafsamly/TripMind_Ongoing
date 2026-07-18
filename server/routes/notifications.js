@@ -1,6 +1,6 @@
 import express from "express";
 import Notification from "../models/Notification.js";
-import Message from "../models/Message.js";
+
 import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -26,14 +26,8 @@ router.put("/:id/read", verifyToken, async (req, res) => {
             { new: true }
         );
 
-        // TRIGGER AUTO-DELETE: 24h timer
-        if (notification && notification.type === 'chat_message' && notification.relatedId) {
-            await Message.findByIdAndUpdate(notification.relatedId, {
-                expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
-            });
-        }
-
         res.json(notification);
+
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

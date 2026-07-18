@@ -227,15 +227,8 @@ function MyTrips() {
                                                 </div>
 
                                                 <div className='mt-auto space-y-2 pt-3 border-t border-white/10'>
-                                                    {booking.status === 'approved' && (
-                                                        <Link
-                                                            to={`/chat?tripId=${booking.tripId?._id || booking.tripId}`}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                            className='w-full h-9 bg-white hover:bg-gray-200 text-black flex items-center justify-center rounded-lg text-[12px] font-inter font-bold transition-colors'
-                                                        >
-                                                            Community Chat
-                                                        </Link>
-                                                    )}
+
+
 
                                                     <button
                                                         onClick={(e) => {

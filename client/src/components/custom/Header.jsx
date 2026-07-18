@@ -134,9 +134,7 @@ function Header() {
                                 Contact
                             </Link>
 
-                            <Link to="/chat" style={{ color: 'white' }} className="text-sm font-semibold tracking-wide relative hover:-translate-y-0.5 transform transition-all duration-300 after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-[2px] after:bottom-[-4px] after:left-0 after:bg-white after:origin-bottom-right after:transition-transform after:duration-300 hover:after:scale-x-100 hover:after:origin-bottom-left">
-                                Chat
-                            </Link>
+
 
                             {user?.role === 'organiser' && (
                                 <Link to="/organiser" className="flex items-center gap-1.5 px-3 py-1 bg-blue-600/10 border border-blue-600/20 rounded-md text-[11px] font-black uppercase tracking-widest text-blue-400 hover:bg-blue-600/20 transition-all">
@@ -149,12 +147,7 @@ function Header() {
 
                     {/* Right Side - Desktop / Auth Buttons */}
                     <div className="hidden md:flex items-center gap-3">
-                        {/* Simple Chat Button */}
-                        <Link to="/chat">
-                            <Button size="sm" variant="outline" className="h-9 px-5 font-semibold text-white bg-transparent border border-white hover:bg-white hover:text-black rounded-full transition-all duration-300">
-                                Chat
-                            </Button>
-                        </Link>
+
 
                         {/* User Actions */}
                         {user?.role === 'organiser' && (
@@ -280,10 +273,7 @@ function Header() {
                                         <Compass className="w-5 h-5 text-white" />
                                         <span className="text-white">My Trips</span>
                                     </Link>
-                                    <Link to="/chat" onClick={() => setIsMenuOpen(false)} className="px-6 py-4 text-[16px] font-black text-white hover:bg-white/10 transition-colors flex items-center gap-4">
-                                        <MessageSquare className="w-5 h-5 text-white" />
-                                        <span className="text-white">Messages</span>
-                                    </Link>
+
 
                                     <div className="h-px bg-white/20 my-4 mx-6"></div>
 

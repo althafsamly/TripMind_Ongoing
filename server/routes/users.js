@@ -2,7 +2,6 @@ import express from "express";
 import User from "../models/User.js";
 import Trip from "../models/Trip.js";
 import Booking from "../models/Booking.js";
-import Message from "../models/Message.js";
 import Notification from "../models/Notification.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 
